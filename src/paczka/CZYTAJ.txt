@@ -1,0 +1,38 @@
+OBFUSKATOR VPN – instrukcja
+===========================
+
+1. Rozpakuj cały folder ObfuskatorVPN tam, gdzie ma zostać na stałe,
+   np. C:\ObfuskatorVPN. Nie uruchamiaj aplikacji z wnętrza pliku ZIP.
+
+2. Uruchom ObfuskatorVPN.exe.
+   - Windows może pokazać okno „System Windows ochronił komputer”.
+     Kliknij „Więcej informacji”, a potem „Uruchom mimo to”.
+   - Za pierwszym razem pojawi się pytanie o uprawnienia administratora.
+     Kliknij „Tak”. To potrzebne tylko raz, bo VPN tworzy wirtualną kartę
+     sieciową. Kolejne uruchomienia nie pytają.
+
+3. Kliknij „Załóż konto”, wpisz swój e-mail i hasło (co najmniej 8 znaków).
+   Na e-mail przyjdzie 6-cyfrowy kod – wpisz go w aplikacji (sprawdź też Spam).
+   Potem konto musi zaakceptować administrator serwera. Aplikacja czeka
+   w zasobniku obok zegara i połączy się sama, gdy to nastąpi
+   (dostaniesz też maila „konto aktywne”).
+   - Na jednym koncie możesz używać do 3 komputerów.
+   - Nie podawaj nikomu hasła – konto jest przypisane do Ciebie.
+   - Zapomniane hasło: „Nie pamiętam hasła” na ekranie logowania.
+
+4. Gotowe. Na pulpicie i w menu Start pojawi się skrót „Obfuskator VPN”.
+   - Fioletowy przycisk oznacza połączenie. Kliknięcie go łączy i rozłącza.
+   - Zamknięcie okna (X) chowa je do zasobnika obok zegara, a VPN dalej działa.
+     Całkowite wyjście: menu „⋯” → Zakończ.
+   - Aplikację możesz przypiąć do paska zadań: kliknij jej ikonę prawym
+     przyciskiem → „Przypnij do paska zadań”.
+   - Start razem z Windowsem: menu „⋯” → Uruchamiaj przy logowaniu.
+
+Uwagi
+-----
+- Nie uruchamiaj równocześnie innego VPN-a ani v2rayN.
+  Jeśli v2rayN działa, aplikacja sama go zamknie.
+- Serwer jest wspólny i ma ograniczone łącze. Nie ściągaj dużych gier ani
+  torrentów przez VPN.
+- Gdy coś nie działa, kliknij „Logi” i wyślij zawartość osobie,
+  która prowadzi serwer.

@@ -1,0 +1,24 @@
+[Unit]
+Description=Obfuskator VPN - API kont (logowanie, synchronizacja z Xray)
+After=network.target xray.service
+Wants=xray.service
+
+[Service]
+User=akvpn
+Group=akvpn
+Environment=AKVPN_CONFIG=/etc/akvpn/config.json
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/opt/akvpn
+ExecStart=/opt/akvpn/venv/bin/python -m akvpn.api
+Restart=always
+RestartSec=3
+# zabezpieczenia - zapis tylko do bazy
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/akvpn
+MemoryMax=300M
+
+[Install]
+WantedBy=multi-user.target

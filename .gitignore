@@ -1,0 +1,29 @@
+# --- TAJNE: nigdy do repozytorium ---
+# klucz prywatny API logowania
+server/tajne/
+# dane wejscia gościa (UUID, sciezka) i ich zaciemniona wersja z budowania
+src/serwer_prywatny.json
+src/_wbudowane.py
+# stare linki vless:// z UUID
+src/Adam.txt
+# paczka serwerowa (zawiera klucz API)
+*.tar.gz
+
+# --- dane i ustawienia lokalnej instalacji ---
+/data/
+/settings.json
+/PRYWATNOSC.txt
+
+# --- zbudowana aplikacja i rdzenie (sa w paczce release) ---
+/bin/
+/_internal/
+/*.exe
+/app.ico
+*.zip
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/

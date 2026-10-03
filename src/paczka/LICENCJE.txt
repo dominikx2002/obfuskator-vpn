@@ -1,0 +1,32 @@
+Obfuskator VPN – licencje
+=========================
+
+Aplikacja Obfuskator VPN (ObfuskatorVPN.exe, kod: https://github.com/<repo>)
+  Copyright (c) 2026 Dominik Serafin
+  Licencja: MIT – plik licencje\MIT-ObfuskatorVPN.txt
+
+Programy dołączone w folderze bin (bez zmian, uruchamiane jako osobne procesy):
+
+  Xray-core 26.9.9 (bin\xray.exe)
+    Licencja: Mozilla Public License 2.0 – licencje\MPL-2.0.txt
+    Kod źródłowy: https://github.com/XTLS/Xray-core/tree/v26.9.9
+
+  sing-box 1.14.2 (bin\sing-box.exe)
+    Licencja: GNU General Public License v3.0 lub nowsza – licencje\GPL-3.0.txt
+    Kod źródłowy: https://github.com/SagerNet/sing-box/tree/v1.14.2
+    Na prośbę udostępnię kopię kodu źródłowego tej wersji (kontakt w README repozytorium).
+
+Biblioteki wbudowane w ObfuskatorVPN.exe (folder _internal):
+
+  Python 3.11 – PSF License Agreement – licencje\Python-PSF.txt
+    (zawiera też licencje komponentów Pythona: OpenSSL, libffi, zlib, bzip2, xz i inne)
+  Tcl/Tk 8.6 – licencja BSD – licencje\Tcl-Tk.txt
+  Pillow 12 – licencja MIT-CMU – licencje\Pillow-MIT-CMU.txt
+  pystray 0.19 – GNU LGPL v3.0 – licencje\LGPL-3.0.txt (+ licencje\GPL-3.0.txt)
+    Kod źródłowy: https://github.com/moses-palmer/pystray
+    Pystray możesz podmienić: kod aplikacji jest publiczny, a build.cmd
+    buduje exe z dowolnej wersji biblioteki zainstalowanej w Pythonie.
+  IBM Plex Mono (czcionka) – SIL Open Font License 1.1 – licencje\IBMPlexMono-OFL.txt
+  six – licencja MIT – licencje\six-MIT.txt
+  PyInstaller (bootloader) – GPL v2 z wyjątkiem dla programów nim budowanych –
+    licencje\PyInstaller-bootloader.txt

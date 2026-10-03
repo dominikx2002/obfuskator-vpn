@@ -1,0 +1,10 @@
+{
+  "host": "104.21.91.212",
+  "port": 443,
+  "sni": "twoja-domena.example",
+  "alpn": "http/1.1",
+  "guest_path": "/g-0123456789abcdef",
+  "guest_uuid": "00000000-0000-4000-8000-000000000000",
+  "vpn_path": "/0123456789abcdef",
+  "admin_email": "ty@example.com"
+}

@@ -1,0 +1,45 @@
+Obfuskator VPN – prywatność
+===========================
+
+Administrator danych: Dominik Serafin, osoba prowadząca serwer Obfuskator VPN
+(kontakt: serafin652002@gmail.com).
+
+Jakie dane trafiają na serwer i po co
+-------------------------------------
+- Adres e-mail – login, kody potwierdzenia i resetu hasła, powiadomienie
+  o akceptacji konta.
+- Hasło – zapisane wyłącznie jako skrót argon2id; nikt (także administrator)
+  nie zna Twojego hasła.
+- Nazwa komputera (np. LAPTOP-ANI) i losowy identyfikator instalacji –
+  lista Twoich urządzeń i limit 3 urządzeń na konto.
+- Daty: założenia konta, logowania, ostatniego użycia urządzenia.
+- Łączna ilość danych pobranych i wysłanych przez każde urządzenie – żeby
+  wspólne łącze nie było nadużywane.
+
+Czego serwer NIE zapisuje: odwiedzanych stron, adresów, z którymi się łączysz,
+ani treści ruchu (proxy Xray działa bez logu dostępu).
+
+Logi techniczne: dziennik systemowy serwera zapisuje zdarzenia kont
+(rejestracja, logowanie, wylogowanie – z adresem e-mail i godziną), a serwer WWW
+standardowy log zapytań (godzina; adres IP to adres Cloudflare, nie Twój).
+Służą do diagnozowania awarii i nadużyć.
+
+Podstawa: Twoja zgoda wyrażona przy zakładaniu konta (art. 6 ust. 1 lit. a RODO)
+i korzystanie z usługi, o którą prosisz (art. 6 ust. 1 lit. b).
+
+Jak długo
+---------
+- Konto niepotwierdzone kodem z maila jest usuwane po 24 godzinach.
+- Pozostałe dane – do usunięcia konta.
+
+Twoje prawa
+-----------
+Możesz poprosić o wgląd w swoje dane, ich poprawienie albo usunięcie konta
+razem ze wszystkimi danymi – napisz na adres powyżej. Możesz też złożyć skargę
+do Prezesa Urzędu Ochrony Danych Osobowych.
+
+Na komputerze
+-------------
+Aplikacja zapisuje w folderze data: sesję logowania (zaszyfrowaną przez
+Windows, czytelną tylko dla Twojego konta Windows), identyfikator instalacji
+i własne logi. Nic z tego nie jest wysyłane poza zapytaniami opisanymi wyżej.
