@@ -1,8 +1,11 @@
 # Obfuskator VPN
 
-Klient VPN dla Windows z kontami użytkowników. Ruch idzie przez
-**VLESS + WebSocket + TLS** za Cloudflare. Nazwa serwera jest ukryta dzięki
-**ECH** (Encrypted Client Hello), więc sieć widzi tylko połączenie z Cloudflare.
+### Dostawcy internetu używają systemów DPI (Deep Packet Inspection), aby blokować ruch VPN oraz określone porty czy aplikacje. Zwykłe protokoły VPN charakteryzują się specyficznym „podpisem” w pakietach, przez co firewall łatwo je identyfikuje i odrzuca.
+
+**Rozwiązanie polega na:**
+
+Obfuskacji pakietów w ruchu sieciowym. Innymi słowy maskowanie ruchu jako standardowe połączenie przeglądarkowe **HTTPS** do bezpiecznej domeny. Wykorzystywany jest serwer **Xray** z protokołem **VLESS** połączonym przez **WebSocket** (ws) oraz technologię **ECH** (Encrypted Client Hello) z **Cloudflare**. Dla firewalla cały ruch (jakiekolwiek pakiety) wyglądają jak przeglądanie strony.
+
 Aplikacja sama uruchamia [Xray-core](https://github.com/XTLS/Xray-core) (proxy)
 i [sing-box](https://github.com/SagerNet/sing-box) (TUN – cały ruch komputera).
 Ma też własny lokalny DNS, który podaje Xray aktualny klucz ECH.
@@ -14,16 +17,6 @@ Ma też własny lokalny DNS, który podaje Xray aktualny klucz ECH.
   <img src="docs/okno.png" width="260" alt="Okno po połączeniu">
   <img src="docs/statystyki.png" width="260" alt="Zakładka Statystyki">
 </p>
-
-## Skąd ta aplikacja
-
-**Problem.** Część sieci, filtruje ruch systemami DPI
-(Deep Packet Inspection). Zwykłe protokoły VPN mają rozpoznawalny „podpis”
-w pakietach, więc zapora łatwo je wykrywa i blokuje. Nawet w HTTPS jest luka:
-pierwszy pakiet połączenia (Client Hello) zawiera nazwę domeny jawnym tekstem
-(SNI), więc zapora może zablokować konkretny serwer.
-
-**Rozwiązanie.** Ruch trzeba przebrać za zwykłe przeglądanie stron:
 
 - **Xray z protokołem VLESS przez WebSocket i TLS.** Dla zapory cały ruch
   wygląda jak połączenie HTTPS ze stroną.
