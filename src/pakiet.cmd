@@ -19,6 +19,7 @@ copy /y "%SRC%paczka\PRYWATNOSC.txt" "%OUT%\" >nul
 xcopy /e /i /q /y "%SRC%paczka\licencje" "%OUT%\licencje" >nul || exit /b 1
 copy /y "%APP%\LICENSE" "%OUT%\licencje\MIT-ObfuskatorVPN.txt" >nul
 for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')"`) do set "DESK=%%D"
-powershell -NoProfile -Command "Compress-Archive -Path '%OUT%' -DestinationPath '%DESK%\ObfuskatorVPN-%VER%.zip' -Force" || exit /b 1
+:: zipfile z Pythona - Compress-Archive z PowerShell 5.1 zapisuje sciezki z "\" (psuje je poza Windows)
+python -c "import shutil,sys; shutil.make_archive(sys.argv[1], 'zip', sys.argv[2], 'ObfuskatorVPN')" "%DESK%\ObfuskatorVPN-%VER%" "%TEMP%\akvpn_pakiet" || exit /b 1
 rmdir /s /q "%TEMP%\akvpn_pakiet"
 echo Gotowe: %DESK%\ObfuskatorVPN-%VER%.zip

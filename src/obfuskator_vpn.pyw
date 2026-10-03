@@ -2840,11 +2840,14 @@ def main():
         root = tkinter.Tk()
         ImageTk.PhotoImage(draw_icon(COLORS["on"]))
         root.destroy()
+        load_fonts()
+        if FONT != "IBM Plex Mono":
+            raise SystemExit(f"brak czcionki w {FONT_DIR}")
         emb = embedded()
         guest_profile(emb)
         ssl.create_default_context(cadata=emb["api_cert"])
         DATA_DIR.mkdir(parents=True, exist_ok=True)
-        (DATA_DIR / "selftest.txt").write_text(f"ok {pystray.Icon.__module__} wbudowane",
+        (DATA_DIR / "selftest.txt").write_text(f"ok {pystray.Icon.__module__} wbudowane {FONT}",
                                                encoding="utf-8")
         return
     settings = load_settings()
