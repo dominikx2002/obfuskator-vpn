@@ -10,8 +10,9 @@ Ma też własny lokalny DNS, który podaje Xray aktualny klucz ECH.
 <p align="center"><img src="docs/ikona.png" width="128" alt="Ikona: pająk na nitce w tarczy"></p>
 
 <p align="center">
-  <img src="docs/logowanie.png" width="300" alt="Ekran logowania">
-  <img src="docs/okno.png" width="300" alt="Okno po połączeniu">
+  <img src="docs/logowanie.png" width="260" alt="Ekran logowania">
+  <img src="docs/okno.png" width="260" alt="Okno po połączeniu">
+  <img src="docs/statystyki.png" width="260" alt="Zakładka Statystyki">
 </p>
 
 ## Funkcje
@@ -23,7 +24,8 @@ Ma też własny lokalny DNS, który podaje Xray aktualny klucz ECH.
 - Cały ruch idzie przez TUN (StrictRoute), a QUIC jest blokowany, żeby ruch wracał do TCP w tunelu.
 - Klucz ECH jest pobierany w tle kilkoma drogami. Ostatni dobry klucz jest zapisywany,
   więc rotacja kluczy w Cloudflare nie zrywa połączenia.
-- Ikona w zasobniku pokazuje stan, okno ma wykres ruchu, ping, publiczne IP i logi.
+- Kompaktowe okno: przycisk połączenia z prędkością i pingiem, zakładki Statystyki
+  (wykres, publiczne IP, klucz ECH) i Konto. Ikona w zasobniku pokazuje stan.
 
 ## Jak to działa
 

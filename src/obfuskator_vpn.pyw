@@ -1380,8 +1380,10 @@ def dark_titlebar(win):
 # ------------------------------------------------------------------ okno ---
 
 class Gui:
-    """Okno w stylu klientow VPN: duzy przycisk, profil, wykres, szczegoly."""
-    W, H = 400, 724
+    """Kompaktowe okno w stylu klientow VPN (jak AmneziaVPN): duzy przycisk i status,
+    pod spodem zakladki Polaczenie / Statystyki / Konto."""
+    W, H = 360, 600
+    TABS = ("home", "stats", "acct")
 
     def __init__(self, app):
         import tkinter as tk
@@ -1447,11 +1449,12 @@ class Gui:
         fn(ImageDraw.Draw(img), W * k, H * k, img)
         return img.resize((W, H), Image.LANCZOS)
 
-    def card(self, x, y, w, h, key):
-        r = self.px(14) * 3
+    def card(self, x, y, w, h, key, tags=None, radius=14):
+        r = self.px(radius) * 3
         img = self.render(w, h, lambda d, W, H, _: d.rounded_rectangle(
             [0, 0, W - 1, H - 1], radius=r, fill=rgb(T["card"]), outline=rgb(T["line"]), width=3))
-        self.c.create_image(self.px(x), self.px(y), image=self.photo(key, img), anchor="nw")
+        return self.c.create_image(self.px(x), self.px(y), image=self.photo(key, img), anchor="nw",
+                                   tags=tags)
 
     def backdrop(self, w, h, glow_y, key):
         """Tlo okna z miekka fioletowa poswiata (za przyciskiem / ikona)."""
@@ -1550,7 +1553,7 @@ class Gui:
                      font=F(11), disabledbackground=T["card_hi"],
                      disabledforeground=T["muted"], selectbackground=T["accent_lo"],
                      highlightthickness=0)
-        e.pack(fill="x", padx=self.px(10), pady=self.px(7))
+        e.pack(fill="x", padx=self.px(10), pady=self.px(6))
         e.bind("<FocusIn>", lambda _e: box.configure(highlightbackground=T["accent"]))
         e.bind("<FocusOut>", lambda _e: box.configure(highlightbackground=T["line"]))
         box.bind("<Button-1>", lambda _e: e.focus_set())
@@ -1571,15 +1574,18 @@ class Gui:
         if click:
             self.c.tag_bind(tag, "<Button-1>", lambda e: click(e))
 
-    def button(self, x, y, w, h, label, cmd):
+    def button(self, x, y, w, h, label, cmd, tab=None, danger=False):
         tag = f"btn_{label}"
+        tags = (tag, tab) if tab else tag
         imgs = {}
-        for st, fill in (("n", T["card_hi"]), ("h", T["line"])):
+        fills = (("n", "#3a1d2a"), ("h", "#52202f")) if danger else (("n", T["card_hi"]), ("h", T["line"]))
+        for st, fill in fills:
             img = self.render(w, h, lambda d, W, H, _, f=fill: d.rounded_rectangle(
                 [0, 0, W - 1, H - 1], radius=H // 2, fill=rgb(f)))
             imgs[st] = self.photo(f"{tag}_{st}", img)
-        item = self.c.create_image(self.px(x), self.px(y), image=imgs["n"], anchor="nw", tags=tag)
-        self.text(x + w / 2, y + h / 2, label, 9, anchor="center", tags=tag)
+        item = self.c.create_image(self.px(x), self.px(y), image=imgs["n"], anchor="nw", tags=tags)
+        self.text(x + w / 2, y + h / 2, label, 9, "#fca5a5" if danger else None, anchor="center",
+                  tags=tags)
         self.hover(tag, lambda: self.c.itemconfigure(item, image=imgs["h"]),
                    lambda: self.c.itemconfigure(item, image=imgs["n"]), lambda e: cmd())
 
@@ -1613,7 +1619,7 @@ class Gui:
             d.line([(cx, y1), (cx, y2)], fill=sym, width=w)
             for yy in (y1, y2):
                 d.ellipse([cx - w / 2, yy - w / 2, cx + w / 2, yy + w / 2], fill=sym)
-        return self.render(176, 176, draw)
+        return self.render(150, 150, draw)
 
     def toggle_img(self, on, color, w=46, h=26):
         def draw(d, W, H, _):
@@ -1624,17 +1630,17 @@ class Gui:
             d.ellipse([kx, m, kx + H - 2 * m, H - m], fill=rgb("#ffffff"))
         return self.render(w, h, draw)
 
-    def avatar_img(self, initial):
+    def avatar_img(self, initial, size=32):
         """Kolko z inicjalem e-maila na karcie konta."""
         def draw(d, W, H, img):
             mk = Image.new("L", (W, H), 0)
             ImageDraw.Draw(mk).ellipse([0, 0, W - 1, H - 1], fill=255)
             img.paste(vgradient(W, H, rgb(T["accent_hi"]), rgb(T["accent_lo"])), (0, 0), mk)
-        img = self.render(36, 36, draw)
+        img = self.render(size, size, draw)
         d = ImageDraw.Draw(img)
         from PIL import ImageFont
         try:
-            font = ImageFont.truetype(str(FONT_DIR / "IBMPlexMono-SemiBold.ttf"), self.px(16))
+            font = ImageFont.truetype(str(FONT_DIR / "IBMPlexMono-SemiBold.ttf"), self.px(size * 0.45))
         except OSError:
             font = ImageFont.load_default()
         d.text((img.width / 2, img.height / 2), initial, fill="white", font=font, anchor="mm")
@@ -1661,76 +1667,147 @@ class Gui:
         return self.render(w, h, draw, k=2), mx
 
     # -- uklad --
+    def nav_icon(self, kind, color):
+        """Ikony dolnego paska: zasilanie, wykres, osoba."""
+        def draw(d, W, H, _):
+            c = rgb(color)
+            w = max(2, int(W * 0.09))
+            if kind == "home":
+                r = W * 0.32
+                d.arc([W / 2 - r, H / 2 - r + W * 0.04, W / 2 + r, H / 2 + r + W * 0.04], -55, 235,
+                      fill=c, width=w)
+                d.line([(W / 2, H * 0.1), (W / 2, H * 0.48)], fill=c, width=w)
+            elif kind == "stats":
+                for i, hh in enumerate((0.35, 0.65, 0.5, 0.85)):
+                    x = W * (0.14 + i * 0.22)
+                    d.rounded_rectangle([x, H * (0.92 - hh), x + W * 0.14, H * 0.92], radius=w // 2,
+                                        fill=c)
+            else:
+                d.ellipse([W * 0.32, H * 0.08, W * 0.68, H * 0.44], outline=c, width=w)
+                d.arc([W * 0.14, H * 0.52, W * 0.86, H * 1.25], 180, 360, fill=c, width=w)
+        return self.render(20, 20, draw)
+
     def _build(self):
-        c, P = self.c, self.px
-        c.create_image(0, 0, image=self.backdrop(self.W, self.H, 142, "bg_main"), anchor="nw")
+        c, P, W = self.c, self.px, self.W
+        c.create_image(0, 0, image=self.backdrop(W, self.H, 175, "bg_main"), anchor="nw")
         # naglowek
-        c.create_image(P(30), P(28), image=self.photo("logo", draw_icon(COLORS["on"], P(24))))
-        self.text(50, 28, APP_NAME, 12, bold=True)
-        dots = self.text(370, 26, "⋯", 16, T["muted"], anchor="center", tags="menu")
+        c.create_image(P(26), P(28), image=self.photo("logo", draw_icon(COLORS["on"], P(22))))
+        self.text(44, 28, APP_NAME, 11, bold=True)
+        dots = self.text(W - 26, 26, "⋯", 16, T["muted"], anchor="center", tags="menu")
         self.hover("menu", lambda: c.itemconfigure(dots, fill=T["text"]),
                    lambda: c.itemconfigure(dots, fill=T["muted"]), self._menu)
 
-        # duzy przycisk
-        self.power = c.create_image(P(200), P(142), tags="power")
+        # --- zakladka Polaczenie ---
+        self.power = c.create_image(P(W / 2), P(165), tags=("power", "home"))
         self.hover("power", click=lambda e: self.app.toggle())
-        self.status_t = self.text(200, 240, "", 18, bold=True, anchor="center")
-        self.sub_t = self.text(200, 266, "", 10, T["muted"], anchor="center")
-
-        # profil
-        self.card(16, 290, 368, 66, "card_prof")
-        self.avatar = c.create_image(P(51), P(323), tags="profile")
+        self.status_t = self.text(W / 2, 262, "", 17, bold=True, anchor="center", tags="home")
+        self.sub_t = self.text(W / 2, 288, "", 9, T["muted"], anchor="center", tags="home")
+        # chipy: pobieranie, wysylanie, ping
+        self.chips = {}
+        cw = (W - 32 - 16) / 3
+        for i, (key, color) in enumerate((("down", T["down"]), ("up", T["up"]), ("ping", T["text"]))):
+            x = 16 + i * (cw + 8)
+            img = self.render(cw, 34, lambda d, w_, h_, _: d.rounded_rectangle(
+                [0, 0, w_ - 1, h_ - 1], radius=h_ // 2, fill=rgb(T["card"]), outline=rgb(T["line"]),
+                width=3))
+            c.create_image(P(x), P(318), image=self.photo(f"chip_{key}", img), anchor="nw", tags="home")
+            self.chips[key] = self.text(x + cw / 2, 335, "–", 9, color, bold=True, anchor="center",
+                                        tags="home")
+        # konto - jak wybor serwera w AmneziaVPN
+        self.card(16, 368, W - 32, 62, "card_prof", tags=("profile", "home"), radius=31)
+        self.avatar = c.create_image(P(48), P(399), tags=("profile", "home"))
         self._avatar_key = None
-        self.prof_name = self.text(80, 312, "", 12, bold=True, tags="profile")
-        self.prof_sub = self.text(80, 336, "", 9, T["muted"], tags="profile")
+        self.prof_name = self.text(76, 389, "", 10, bold=True, tags=("profile", "home"))
+        self.prof_sub = self.text(76, 410, "", 8, T["muted"], tags=("profile", "home"))
+        self.text(W - 36, 398, "›", 16, T["muted"], anchor="center", tags=("profile", "home"))
         self.hover("profile", click=lambda e: self.account_dialog())
-        self.tog = c.create_image(P(364), P(323), anchor="e", tags="toggle")
-        self.hover("toggle", click=lambda e: self.app.toggle())
+        self.since_t = self.text(W / 2, 452, "", 8, T["dim"], anchor="center", tags="home")
 
-        # ruch
-        self.card(16, 368, 368, 124, "card_traffic")
-        self.down_l = self.text(34, 387, "", 8, T["muted"], bold=True)
-        self.up_l = self.text(206, 387, "", 8, T["muted"], bold=True)
-        self.down_v = self.text(34, 410, "", 15, T["down"], bold=True)
-        self.up_v = self.text(206, 410, "", 15, T["up"], bold=True)
-        self.graph = c.create_image(P(30), P(430), anchor="nw")
-
-        # szczegoly
-        self.card(16, 504, 368, 160, "card_det")
+        # --- zakladka Statystyki ---
+        self.text(16, 70, "Statystyki", 14, bold=True, tags="stats")
+        self.card(16, 92, W - 32, 128, "card_traffic", tags="stats")
+        self.down_l = self.text(30, 110, "", 7, T["muted"], bold=True, tags="stats")
+        self.up_l = self.text(W / 2 + 6, 110, "", 7, T["muted"], bold=True, tags="stats")
+        self.down_v = self.text(30, 132, "", 13, T["down"], bold=True, tags="stats")
+        self.up_v = self.text(W / 2 + 6, 132, "", 13, T["up"], bold=True, tags="stats")
+        self.graph = c.create_image(P(30), P(152), anchor="nw", tags="stats")
+        self.card(16, 230, W - 32, 196, "card_det", tags="stats")
         rows = [[("ip", "PUBLICZNE IP"), ("ping", "PING")],
                 [("loc", "LOKALIZACJA"), ("time", "CZAS POŁĄCZENIA")],
                 [("ech", "KLUCZ ECH"), ("fetched", "KLUCZ ODŚWIEŻONY")],
-                [("src", "ŹRÓDŁO KLUCZA"), ("conns", "AKTYWNE POŁĄCZENIA")]]
+                [("src", "ŹRÓDŁO KLUCZA"), ("conns", "POŁĄCZENIA")]]
         self.det = {}
         for r, row in enumerate(rows):
-            y = 520 + r * 37
+            y = 248 + r * 44
             for col, (key, label) in enumerate(row):
-                x = 34 + col * 176
-                self.text(x, y, label, 7, T["dim"], bold=True)
-                self.det[key] = self.text(x, y + 17, "–", 10)
+                x = 30 + col * (W / 2 - 22)
+                self.text(x, y, label, 7, T["dim"], bold=True, tags="stats")
+                self.det[key] = self.text(x, y + 18, "–", 9, tags="stats")
+        bw = (W - 32 - 8) / 2
+        self.button(16, 438, bw, 34, "Odśwież klucz ECH", self.app.ech.refresh_now, "stats")
+        self.button(16 + bw + 8, 438, bw, 34, "Logi", self.show_logs, "stats")
 
-        # przyciski
-        self.button(16, 678, 118, 32, "Odśwież klucz", self.app.ech.refresh_now)
-        self.button(141, 678, 118, 32, "Logi", self.show_logs)
-        self.button(266, 678, 118, 32, "Konto", self.account_dialog)
+        # --- zakladka Konto ---
+        self.text(16, 70, "Konto", 14, bold=True, tags="acct")
+        self.card(16, 92, W - 32, 84, "card_acct", tags="acct")
+        self.acc_avatar = c.create_image(P(52), P(134), tags="acct")
+        self.acc_email = self.text(84, 120, "", 10, bold=True, tags="acct")
+        self.acc_dev = self.text(84, 141, "", 8, T["muted"], tags="acct")
+        self.acc_note = self.text(84, 158, "", 8, T["dim"], tags="acct")
+        self.card(16, 186, W - 32, 96, "card_opts", tags="acct")
+        self.opts = {}
+        for i, (key, label) in enumerate((("autostart", "Uruchamiaj z Windowsem"),
+                                          ("auto_connect", "Łącz automatycznie"))):
+            y = 210 + i * 48
+            self.text(30, y, label, 9, tags=("acct", f"opt_{key}"))
+            self.opts[key] = c.create_image(P(W - 30), P(y), anchor="e", tags=("acct", f"opt_{key}"))
+            self.hover(f"opt_{key}", click=lambda e, k=key: self.app.toggle_option(k))
+        self._opts_key = None
+        c.create_line(P(30), P(234), P(W - 30), P(234), fill=T["line"], tags="acct")
+        self.button(16, 296, W - 32, 34, "Folder z danymi", self.app.open_logs, "acct")
+        self.button(16, 338, W - 32, 34, "Prywatność", open_privacy, "acct")
+        self.button(16, 380, W - 32, 34, "Wyloguj", self.app.logout_async, "acct", danger=True)
+        self.button(16, 438, W - 32, 34, "Zakończ aplikację", lambda: self.app.ui.put("quit"), "acct")
+
+        # --- dolny pasek zakladek ---
+        nav_y = self.H - 58
+        img = self.render(W, 58, lambda d, w_, h_, _: (
+            d.rectangle([0, 0, w_, h_], fill=rgb(T["card"])),
+            d.line([(0, 1), (w_, 1)], fill=rgb(T["line"]), width=3)))
+        c.create_image(0, P(nav_y), image=self.photo("nav_bg", img), anchor="nw")
+        self.nav = {}
+        for i, (tab, label) in enumerate((("home", "Połączenie"), ("stats", "Statystyki"),
+                                          ("acct", "Konto"))):
+            x = W * (i * 2 + 1) / 6
+            ic = c.create_image(P(x), P(nav_y + 21), tags=f"nav_{tab}")
+            lb = self.text(x, nav_y + 43, label, 8, T["muted"], anchor="center", tags=f"nav_{tab}")
+            # niewidoczny prostokat - caly obszar zakladki klikalny
+            c.create_rectangle(P(x - W / 6), P(nav_y), P(x + W / 6), P(self.H), outline="", fill="",
+                               tags=f"nav_{tab}")
+            self.nav[tab] = (ic, lb)
+            self.hover(f"nav_{tab}", click=lambda e, t=tab: self.set_tab(t))
+        self.tab = None
+        self.set_tab("home")
+
+    def set_tab(self, tab):
+        if tab == self.tab:
+            return
+        self.tab = tab
+        for t in self.TABS:
+            self.c.itemconfigure(t, state="normal" if t == tab else "hidden")
+        for t, (ic, lb) in self.nav.items():
+            col = T["accent_hi"] if t == tab else T["muted"]
+            self.c.itemconfigure(ic, image=self.photo(f"nav_{t}_{t == tab}", self.nav_icon(t, col)))
+            self.c.itemconfigure(lb, fill=col)
+        self.refresh()
 
     def _menu(self, e):
         tk = self.tk
         m = tk.Menu(self.root, tearoff=0, bg=T["card_hi"], fg=T["text"], bd=0, relief="flat",
-                    activebackground=T["line"], activeforeground=T["text"],
-                    selectcolor=T["text"], font=F(10))
+                    activebackground=T["line"], activeforeground=T["text"], font=F(10))
         m.add_command(label="  Połącz / rozłącz", command=self.app.toggle)
         m.add_command(label="  Odśwież klucz ECH", command=self.app.ech.refresh_now)
-        if self.app.session:
-            m.add_command(label="  Konto…", command=self.account_dialog)
-            m.add_command(label="  Wyloguj", command=self.app.logout_async)
-        m.add_separator()
         m.add_command(label="  Logi", command=self.show_logs)
-        m.add_command(label="  Folder z danymi", command=self.app.open_logs)
-        self._auto_var = tk.BooleanVar(value=bool(self.app._autostart))
-        m.add_checkbutton(label="  Uruchamiaj przy logowaniu", variable=self._auto_var,
-                          command=lambda: threading.Thread(target=self.app.toggle_autostart,
-                                                           daemon=True).start())
         m.add_separator()
         m.add_command(label="  Zakończ", command=lambda: self.app.ui.put("quit"))
         m.tk_popup(e.x_root, e.y_root)
@@ -1763,118 +1840,86 @@ class Gui:
         c = self.c
         st = m.status
         on = st in ("on", "problem")
-        self._draw_power()
-        c.itemconfigure(self.status_t, text=STATUS_TEXT[st],
-                        fill=T["text"] if st == "off" else COLORS[st])
         p = cores.profile
         has_profile = isinstance(p, Profile)
         sess = app.session or {}
-        sub = {
-            "off": "Kliknij przycisk, aby połączyć" if has_profile
-                   else "Zaloguj się, aby połączyć",
-            "connecting": "Zestawianie zaszyfrowanego tunelu…",
-            "on": f"Ruch jest ukryty · {m.ping_ms} ms" if m.ping_ms is not None else "Ruch jest ukryty",
-            "problem": "Serwer nie odpowiada – odświeżam klucz ECH",
-            "error": (app.last_error or "Sprawdź logi")[:52],
-        }[st]
-        c.itemconfigure(self.sub_t, text=sub)
-
         em = sess.get("email") or p.remarks
-        c.itemconfigure(self.prof_name, text=em if len(em) <= 24 else em[:23] + "…")
+        em_short = em if len(em) <= 26 else em[:25] + "…"
+        dev = (sess.get("device") or {}).get("name") or device_name()
         initial = (sess.get("email") or "?")[0].upper()
         if initial != self._avatar_key:
             self._avatar_key = initial
             c.itemconfigure(self.avatar, image=self.photo("avatar", self.avatar_img(initial)))
-        dev = (sess.get("device") or {}).get("name") or device_name()
-        c.itemconfigure(self.prof_sub, text=f"{dev[:14]} · {p.transport.replace(' ', '')}"
-                        if has_profile else "Kliknij, aby się zalogować")
-        tkey = (app.want_connected, st)
-        if tkey != self._tog_key:
-            self._tog_key = tkey
-            col = COLORS[st] if st != "off" else COLORS["on"]
-            c.itemconfigure(self.tog, image=self.photo("toggle", self.toggle_img(app.want_connected, col)))
+            c.itemconfigure(self.acc_avatar, image=self.photo("avatar_big", self.avatar_img(initial, 44)))
 
-        c.itemconfigure(self.down_l, text=f"↓  POBIERANIE   {fmt_bytes(m.down_total)}")
-        c.itemconfigure(self.up_l, text=f"↑  WYSYŁANIE   {fmt_bytes(m.up_total)}")
-        c.itemconfigure(self.down_v, text=f"{fmt_bytes(m.down)}/s")
-        c.itemconfigure(self.up_v, text=f"{fmt_bytes(m.up)}/s")
-        img, _ = self.graph_img(m.history, 340, 50)
-        c.itemconfigure(self.graph, image=self.photo("graph", img))
-
-        d = self.det
-        c.itemconfigure(d["ip"], text=m.public[0] if m.public and on else "–")
-        c.itemconfigure(d["loc"], text=f"{m.public[1]} · {m.public[2]}" if m.public and on else "–")
-        c.itemconfigure(d["ping"], text=f"{m.ping_ms} ms" if m.ping_ms is not None else "–")
-        c.itemconfigure(d["time"], text=fmt_duration(time.time() - cores.started_at)
-                        if cores.started_at and on else "–")
-        c.itemconfigure(d["ech"], text=e.key_id if e.key else "brak klucza",
-                        fill=T["text"] if e.key else COLORS["error"])
-        if e.fetched_at:
-            t = datetime.fromtimestamp(e.fetched_at).strftime("%H:%M:%S")
-            c.itemconfigure(d["fetched"], text=t + ("  ⚠" if e.last_error else ""),
-                            fill=COLORS["problem"] if e.last_error else T["text"])
-        c.itemconfigure(d["src"], text=(e.source or "–").replace(" (sieć)", "")[:18])
-        c.itemconfigure(d["conns"], text=str(m.conns) if on else "–")
+        if self.tab == "home":
+            self._draw_power()
+            c.itemconfigure(self.status_t, text=STATUS_TEXT[st],
+                            fill=T["text"] if st == "off" else COLORS[st])
+            sub = {
+                "off": "Kliknij przycisk, aby połączyć" if has_profile
+                       else "Zaloguj się, aby połączyć",
+                "connecting": "Zestawianie zaszyfrowanego tunelu…",
+                "on": "Ruch jest ukryty",
+                "problem": "Serwer nie odpowiada – odświeżam klucz",
+                "error": (app.last_error or "Sprawdź logi")[:44],
+            }[st]
+            c.itemconfigure(self.sub_t, text=sub)
+            c.itemconfigure(self.chips["down"], text=f"↓ {fmt_bytes(m.down)}/s" if on else "↓ –")
+            c.itemconfigure(self.chips["up"], text=f"↑ {fmt_bytes(m.up)}/s" if on else "↑ –")
+            c.itemconfigure(self.chips["ping"], text=f"{m.ping_ms} ms" if m.ping_ms is not None
+                            else "– ms")
+            c.itemconfigure(self.prof_name, text=em_short)
+            c.itemconfigure(self.prof_sub, text=f"{dev[:16]} · {p.transport.replace(' ', '')}"
+                            if has_profile else "Kliknij, aby się zalogować")
+            since = ""
+            if cores.started_at and on:
+                since = f"Połączono od {fmt_duration(time.time() - cores.started_at)}"
+                if m.public:
+                    since += f" · {m.public[1]} {m.public[2]}"
+            c.itemconfigure(self.since_t, text=since)
+        elif self.tab == "stats":
+            c.itemconfigure(self.down_l, text=f"↓ POBIERANIE  {fmt_bytes(m.down_total)}")
+            c.itemconfigure(self.up_l, text=f"↑ WYSYŁANIE  {fmt_bytes(m.up_total)}")
+            c.itemconfigure(self.down_v, text=f"{fmt_bytes(m.down)}/s")
+            c.itemconfigure(self.up_v, text=f"{fmt_bytes(m.up)}/s")
+            img, _ = self.graph_img(m.history, self.W - 60, 52)
+            c.itemconfigure(self.graph, image=self.photo("graph", img))
+            d = self.det
+            c.itemconfigure(d["ip"], text=m.public[0] if m.public and on else "–")
+            c.itemconfigure(d["loc"], text=f"{m.public[1]} · {m.public[2]}" if m.public and on else "–")
+            c.itemconfigure(d["ping"], text=f"{m.ping_ms} ms" if m.ping_ms is not None else "–")
+            c.itemconfigure(d["time"], text=fmt_duration(time.time() - cores.started_at)
+                            if cores.started_at and on else "–")
+            c.itemconfigure(d["ech"], text=e.key_id if e.key else "brak klucza",
+                            fill=T["text"] if e.key else COLORS["error"])
+            if e.fetched_at:
+                t = datetime.fromtimestamp(e.fetched_at).strftime("%H:%M:%S")
+                c.itemconfigure(d["fetched"], text=t + (" ⚠" if e.last_error else ""),
+                                fill=COLORS["problem"] if e.last_error else T["text"])
+            c.itemconfigure(d["src"], text=(e.source or "–").replace(" (sieć)", "")[:16])
+            c.itemconfigure(d["conns"], text=str(m.conns) if on else "–")
+        else:
+            c.itemconfigure(self.acc_email, text=em_short)
+            status = {"active": "konto aktywne", "pending": "czeka na akceptację"}.get(
+                sess.get("status"), "nie zalogowano")
+            c.itemconfigure(self.acc_dev, text=f"{dev[:18]} · {status}")
+            c.itemconfigure(self.acc_note, text="Zapamiętane na tym komputerze" if app.remember
+                            else "Sesja tylko do zamknięcia aplikacji")
+            key = (bool(app._autostart), bool(app.s.get("auto_connect")))
+            if key != self._opts_key:
+                self._opts_key = key
+                for k, val in zip(("autostart", "auto_connect"), key):
+                    c.itemconfigure(self.opts[k], image=self.photo(
+                        f"opt_{k}", self.toggle_img(val, T["accent"], 40, 22)))
         self._refresh_logs()
 
     # -- konto --
-    def _place_dialog(self, w):
-        """Szerokosc jak glowne okno, wysrodkowane na nim i w calosci na ekranie."""
-        w.after(30, lambda: dark_titlebar(w))  # po wyswietleniu okna
-        w.update_idletasks()
-        width, height = self.px(self.W - 16), w.winfo_reqheight()
-        rect = ctypes.wintypes.RECT()
-        ctypes.windll.user32.SystemParametersInfoW(48, 0, ctypes.byref(rect), 0)
-        x = self.root.winfo_rootx() + (self.root.winfo_width() - width) // 2
-        x = max(rect.left + self.px(8), min(x, rect.right - width - self.px(16)))
-        y = self.root.winfo_rooty() + self.px(170)
-        w.geometry(f"{width}x{height}+{x}+{y}")
-
     def account_dialog(self):
-        tk = self.tk
-        sess = self.app.session
-        if not sess:
-            self.show()
-            return
-        if getattr(self, "_accwin", None) is not None and self._accwin.winfo_exists():
-            self._accwin.lift()
-            return
-        if not self.visible:
-            self.show()
-        w = tk.Toplevel(self.root)
-        self._accwin = w
-        w.title("Konto")
-        w.configure(bg=T["bg"])
-        w.resizable(False, False)
-        w.transient(self.root)
-        pad = self.px(18)
-        frm = tk.Frame(w, bg=T["bg"], padx=pad, pady=pad)
-        frm.pack(fill="both", expand=True)
-
-        def label(txt, size=10, color=T["text"], bold=False, pady=(0, 0)):
-            lb = tk.Label(frm, text=txt, bg=T["bg"], fg=color, justify="left", anchor="w",
-                          font=F(size, bold),
-                          wraplength=self.px(340))
-            lb.pack(fill="x", pady=pady)
-            return lb
-        label("Twoje konto", 13, bold=True)
-        label(sess["email"], 11, pady=(self.px(8), 0))
-        dev = (sess.get("device") or {}).get("name") or device_name()
-        status = {"active": "aktywne", "pending": "czeka na akceptację"}.get(sess.get("status"), "–")
-        label(f"Urządzenie: {dev}   ·   konto {status}", 9, T["muted"], pady=(self.px(2), 0))
-        label("Zapamiętane na tym komputerze" if self.app.remember
-              else "Niezapamiętane – po zamknięciu aplikacji trzeba zalogować się ponownie",
-              9, T["muted"], pady=(self.px(2), self.px(14)))
-        row = tk.Frame(frm, bg=T["bg"])
-        row.pack(fill="x")
-
-        def logout():
-            w.destroy()
-            self.app.logout_async()
-        self.pill(row, 104, 34, "Zamknij", w.destroy, "secondary", T["bg"]).pack(
-            side="right", padx=(self.px(8), 0))
-        self.pill(row, 104, 34, "Wyloguj", logout, "danger", T["bg"]).pack(side="right")
-        self._place_dialog(w)
+        """Zakladka Konto (albo ekran logowania, gdy nikt nie jest zalogowany)."""
+        self.show()
+        if self.app.session and self.auth_current is None:
+            self.set_tab("acct")
 
     # -- ekran logowania / rejestracji (nakladka na glowne okno) --
     def auth_view(self, view, msg="", info="", **kw):
@@ -1898,32 +1943,25 @@ class Gui:
             self._auth_email.set(kw["email"])
 
         # naglowek jak w glownym oknie
-        head = tk.Canvas(a, width=P(self.W), height=P(196), bg=T["bg"], highlightthickness=0, bd=0)
+        head = tk.Canvas(a, width=P(self.W), height=P(150), bg=T["bg"], highlightthickness=0, bd=0)
         head.pack(fill="x")
-        head.create_image(0, 0, image=self.backdrop(self.W, 196, 108, "bg_auth"), anchor="nw")
-        head.create_image(P(30), P(28), image=self.photo("auth_logo", draw_icon(COLORS["on"], P(24))))
-        head.create_text(P(50), P(28), text=APP_NAME, fill=T["text"], anchor="w",
-                         font=F(12, True))
-        dots = head.create_text(P(370), P(26), text="⋯", fill=T["muted"], anchor="center",
+        head.create_image(0, 0, image=self.backdrop(self.W, 150, 82, "bg_auth"), anchor="nw")
+        head.create_image(P(26), P(28), image=self.photo("auth_logo", draw_icon(COLORS["on"], P(22))))
+        head.create_text(P(44), P(28), text=APP_NAME, fill=T["text"], anchor="w",
+                         font=F(11, True))
+        dots = head.create_text(P(self.W - 26), P(26), text="⋯", fill=T["muted"], anchor="center",
                                 font=("Segoe UI", 16), tags="menu")
         head.tag_bind("menu", "<Button-1>", self._menu)
         head.tag_bind("menu", "<Enter>", lambda e: head.itemconfigure(dots, fill=T["text"]))
         head.tag_bind("menu", "<Leave>", lambda e: head.itemconfigure(dots, fill=T["muted"]))
         color = COLORS["connecting"] if view == "pending" else COLORS["on"]
-        head.create_image(P(200), P(108), image=self.photo("auth_big", draw_icon(color, P(80))))
-        titles = {
-            "login": ("Zaloguj się", f"Zaloguj się na swoje konto {APP_NAME}."),
-            "register": ("Załóż konto", "Po potwierdzeniu adresu e-mail konto musi jeszcze "
-                                        "zaakceptować administrator serwera."),
-            "verify": ("Potwierdź e-mail", "Wpisz kod z wiadomości."),
-            "pending": ("Czekasz na akceptację", "Administrator dostał powiadomienie o Twoim koncie."),
-            "forgot": ("Nie pamiętasz hasła?", "Wyślemy kod do ustawienia nowego hasła."),
-            "reset": ("Nowe hasło", "Wpisz kod z wiadomości i nowe hasło."),
-            "device_limit": ("Limit urządzeń", "To konto działa już na innych komputerach."),
-        }
-        t1, t2 = titles[view]
-        head.create_text(P(200), P(172), text=t1, fill=T["text"], anchor="center",
-                         font=F(16, True))
+        head.create_image(P(self.W / 2), P(80), image=self.photo("auth_big", draw_icon(color, P(56))))
+        titles = {"login": "Zaloguj się", "register": "Załóż konto", "verify": "Potwierdź e-mail",
+                  "pending": "Czekasz na akceptację", "forgot": "Reset hasła",
+                  "reset": "Nowe hasło", "device_limit": "Limit urządzeń"}
+        t1 = titles[view]
+        head.create_text(P(self.W / 2), P(132), text=t1, fill=T["text"], anchor="center",
+                         font=F(14, True))
 
         # karta: ramka z polami na zaokraglonym tle (tlo dorysowane po ulozeniu pol)
         holder = tk.Canvas(a, width=P(self.W), height=P(100), bg=T["bg"], highlightthickness=0, bd=0)
@@ -1933,10 +1971,9 @@ class Gui:
 
         def text(txt, color=T["muted"], size=9, pady=(0, P(10))):
             lb = tk.Label(card, text=txt, bg=T["card"], fg=color, font=F(size),
-                          anchor="w", justify="left", wraplength=P(316))
+                          anchor="w", justify="left", wraplength=P(self.W - 84))
             lb.pack(fill="x", pady=pady)
             return lb
-        text(t2)
         if msg:
             text(msg, COLORS["error"])
         self._auth_status = text(info, T["muted"], pady=(0, P(6)))
@@ -1948,7 +1985,7 @@ class Gui:
                      font=F(7, True)).pack(fill="x")
             var = var or tk.StringVar()
             box, e = self.entry_box(card, var, secret)
-            box.pack(fill="x", pady=(P(4), P(12)))
+            box.pack(fill="x", pady=(P(3), P(9)))
             entries.append(e)
             self._auth_widgets.append(e)
             return var
@@ -1956,7 +1993,7 @@ class Gui:
         def remember_box():
             sw = self.switch(card, self._auth_remember, "Zapamiętaj mnie na tym komputerze",
                              T["card"])
-            sw.pack(fill="x", pady=(0, P(12)))
+            sw.pack(fill="x", pady=(0, P(9)))
             self._auth_widgets.append(sw)
 
         def primary(label, cmd):
@@ -1990,25 +2027,21 @@ class Gui:
             link("Nie pamiętam hasła", lambda: self.auth_view("forgot"), side="right")
         elif view == "register":
             field("E-mail", email)
-            pw = field("Hasło (min. 8 znaków)", secret=True)
+            pw = field("Hasło", secret=True)
             pw2 = field("Powtórz hasło", secret=True)
             remember_box()
-            text("Zakładając konto, zgadzasz się na zapisanie na serwerze e-maila, nazwy "
-                 "komputera i ilości przesłanych danych – szczegóły w „Prywatność”.")
             primary("Załóż konto", lambda: app.auth_register(email.get(), pw.get(), pw2.get(),
                                                              remember.get()))
             link("Masz już konto? Zaloguj się", lambda: self.auth_view("login"))
             link("Prywatność", open_privacy, side="right")
         elif view == "verify":
-            text(f"Wysłaliśmy 6-cyfrowy kod na adres {email.get()}. Sprawdź też folder Spam.")
+            text(f"Kod wysłaliśmy na {email.get()}")
             code = field("Kod z maila")
             primary("Potwierdź", lambda: app.auth_verify(email.get(), code.get()))
             link("Wyślij kod ponownie", lambda: app.auth_resend(email.get()))
             link("Wróć", lambda: self.auth_view("login"), side="right")
         elif view == "pending":
-            text(f"Adres {email.get()} jest potwierdzony. Gdy administrator zaakceptuje konto, "
-                 "aplikacja sama połączy się z VPN-em. Możesz zamknąć to okno – aplikacja "
-                 "czeka w zasobniku obok zegara.")
+            text("Po akceptacji połączymy się automatycznie.")
             primary("Sprawdź teraz", lambda: app.check_account_async("guest", manual=True))
             link("Wyloguj", app.logout_async)
         elif view == "forgot":
@@ -2016,9 +2049,9 @@ class Gui:
             primary("Wyślij kod", lambda: app.auth_forgot(email.get()))
             link("Wróć", lambda: self.auth_view("login"))
         elif view == "reset":
-            text(f"Jeśli konto {email.get()} istnieje, wysłaliśmy na nie kod.")
+            text(f"Kod wysłaliśmy na {email.get()}")
             code = field("Kod z maila")
-            pw = field("Nowe hasło (min. 8 znaków)", secret=True)
+            pw = field("Nowe hasło", secret=True)
             pw2 = field("Powtórz hasło", secret=True)
             primary("Ustaw hasło i zaloguj", lambda: app.auth_reset(
                 email.get(), code.get(), pw.get(), pw2.get(), remember.get()))
@@ -2026,28 +2059,19 @@ class Gui:
             link("Wróć", lambda: self.auth_view("login"), side="right")
         elif view == "device_limit":
             names = ", ".join(kw.get("devices") or []) or "–"
-            text(f"Zalogowane urządzenia: {names}.", T["text"])
-            text("Możesz wylogować je wszystkie i zalogować się tutaj. Na tamtych komputerach "
-                 "trzeba będzie zalogować się ponownie.")
+            text(f"Zalogowane: {names}", T["text"])
             pw = kw.get("password", "")
-            primary("Wyloguj pozostałe i zaloguj", lambda: app.auth_login(
+            primary("Wyloguj je i zaloguj tutaj", lambda: app.auth_login(
                 email.get(), pw, remember.get(), logout_others=True))
             link("Wróć", lambda: self.auth_view("login"))
-        # zaokraglone tlo karty pod ulozonymi polami
-        card.update_idletasks()
-        hh = card.winfo_reqheight() + P(12)
-        holder.configure(height=hh)
-        r = P(14) * 3
-        bgimg = self.render(self.W - 32, hh / self.s, lambda d, W, H, _: d.rounded_rectangle(
-            [0, 0, W - 1, H - 1], radius=r, fill=rgb(T["card"]), outline=rgb(T["line"]), width=3))
-        holder.tag_lower(holder.create_image(P(16), 0, image=self.photo("auth_card", bgimg),
-                                             anchor="nw"))
         # pusty wiersz statusu chowamy (wraca w auth_info na swoje miejsce)
         slaves = card.pack_slaves()
         i = slaves.index(self._auth_status)
         self._auth_anchor = slaves[i + 1] if i + 1 < len(slaves) else None
         if not info:
             self._auth_status.pack_forget()
+        self._auth_holder, self._auth_card = holder, card
+        self._auth_fit()
         self.auth_set_busy(app.auth_busy)
         empty = [e for e in entries if not e.get()]
         if empty or entries:
@@ -2081,6 +2105,23 @@ class Gui:
         elif not st.winfo_ismapped():
             kw = {"before": self._auth_anchor} if self._auth_anchor is not None else {}
             st.pack(fill="x", pady=(0, self.px(6)), **kw)
+        self._auth_fit()
+
+    def _auth_fit(self):
+        """Zaokraglone tlo karty dopasowane do aktualnej zawartosci."""
+        holder, card = self._auth_holder, self._auth_card
+        card.update_idletasks()
+        hh = card.winfo_reqheight() + self.px(12)
+        if getattr(holder, "_fit_h", None) == hh:
+            return
+        holder._fit_h = hh
+        holder.configure(height=hh)
+        holder.delete("cardbg")
+        r = self.px(14) * 3
+        bgimg = self.render(self.W - 32, hh / self.s, lambda d, W, H, _: d.rounded_rectangle(
+            [0, 0, W - 1, H - 1], radius=r, fill=rgb(T["card"]), outline=rgb(T["line"]), width=3))
+        holder.tag_lower(holder.create_image(self.px(16), 0, image=self.photo("auth_card", bgimg),
+                                             anchor="nw", tags="cardbg"))
 
     def hide_auth(self):
         if self._auth is not None:
@@ -2575,6 +2616,22 @@ class App:
         ok = self.autostart_enabled() == want
         log(("Autostart wlaczony" if want else "Autostart wylaczony") if ok
             else "Nie udalo sie zmienic autostartu")
+
+    def toggle_option(self, key):
+        """Przelaczniki z zakladki Konto."""
+        if key == "autostart":
+            threading.Thread(target=self.toggle_autostart, daemon=True).start()
+            return
+        self.s[key] = not self.s.get(key)
+        try:
+            saved = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            saved = {}
+        saved[key] = self.s[key]
+        try:
+            SETTINGS_FILE.write_text(json.dumps(saved, indent=2), encoding="utf-8")
+        except OSError as e:
+            log(f"Nie zapisalem ustawien: {e}")
 
     def quit(self):
         if self.quitting:
