@@ -1,4 +1,5 @@
-Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
+PT Root UI
+Copyright (c) 2018 ParaType Inc., ParaType Ltd.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 

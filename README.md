@@ -87,7 +87,7 @@ python server\tests\e2e_lokalny.py                         # pełny przebieg z p
 ## Licencja
 
 Kod w tym repozytorium jest udostępniany na licencji [MIT](LICENSE). Xray-core (MPL-2.0),
-sing-box (GPL-3.0+), czcionka IBM Plex Mono (OFL) i biblioteki w paczce mają
+sing-box (GPL-3.0+), czcionka PT Root UI (OFL) i biblioteki w paczce mają
 własne licencje. Ich spis jest w [src/paczka/LICENCJE.txt](src/paczka/LICENCJE.txt),
 a pełne teksty w [src/paczka/licencje/](src/paczka/licencje/).
 

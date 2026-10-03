@@ -26,7 +26,7 @@ Biblioteki wbudowane w ObfuskatorVPN.exe (folder _internal):
     Kod źródłowy: https://github.com/moses-palmer/pystray
     Pystray możesz podmienić: kod aplikacji jest publiczny, a build.cmd
     buduje exe z dowolnej wersji biblioteki zainstalowanej w Pythonie.
-  IBM Plex Mono (czcionka) – SIL Open Font License 1.1 – licencje\IBMPlexMono-OFL.txt
+  PT Root UI (czcionka, ParaType) – SIL Open Font License 1.1 – licencje\PTRootUI-OFL.txt
   six – licencja MIT – licencje\six-MIT.txt
   PyInstaller (bootloader) – GPL v2 z wyjątkiem dla programów nim budowanych –
     licencje\PyInstaller-bootloader.txt

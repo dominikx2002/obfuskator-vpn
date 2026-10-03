@@ -113,7 +113,7 @@ T = {
 
 # czcionka programistyczna dolaczona do aplikacji (ladowana prywatnie, bez instalacji)
 FONT_DIR = (Path(sys._MEIPASS) if FROZEN else APP_DIR / "src") / "fonts"
-FONT = "Segoe UI"            # zmienia load_fonts(), gdy IBM Plex Mono sie zaladuje
+FONT = "Segoe UI"            # zmienia load_fonts(), gdy PT Root UI (jak w AmneziaVPN) sie zaladuje
 FONT_B = "Segoe UI Semibold"
 
 
@@ -126,11 +126,14 @@ def load_fonts():
         except Exception:
             pass
     if loaded:
-        FONT, FONT_B = "IBM Plex Mono", "IBM Plex Mono SemiBold"
+        # czcionka zmienna - Windows udostepnia ja jako odmiany Regular/Bold i osobna Medium
+        FONT = FONT_B = "PT Root UI VF"
 
 
 def F(size, bold=False):
-    return (FONT_B if bold else FONT, size)
+    if bold:
+        return (FONT_B, size, "bold") if FONT_B == FONT else (FONT_B, size)
+    return (FONT, size)
 
 
 def rgb(h: str, a: int = 255):
@@ -1398,7 +1401,7 @@ class Gui:
         import tkinter.font
         global FONT, FONT_B
         fams = tkinter.font.families(root)
-        if FONT not in fams or FONT_B not in fams:
+        if FONT not in fams:
             FONT, FONT_B = "Segoe UI", "Segoe UI Semibold"
         self.s = root.winfo_fpixels("1i") / 96
         root.title(APP_NAME)
@@ -1640,8 +1643,9 @@ class Gui:
         d = ImageDraw.Draw(img)
         from PIL import ImageFont
         try:
-            font = ImageFont.truetype(str(FONT_DIR / "IBMPlexMono-SemiBold.ttf"), self.px(size * 0.45))
-        except OSError:
+            font = ImageFont.truetype(str(FONT_DIR / "pt-root-ui_vf.ttf"), self.px(size * 0.5))
+            font.set_variation_by_name("Bold")
+        except (OSError, ValueError):
             font = ImageFont.load_default()
         d.text((img.width / 2, img.height / 2), initial, fill="white", font=font, anchor="mm")
         return img
@@ -2841,7 +2845,7 @@ def main():
         ImageTk.PhotoImage(draw_icon(COLORS["on"]))
         root.destroy()
         load_fonts()
-        if FONT != "IBM Plex Mono":
+        if FONT != "PT Root UI VF":
             raise SystemExit(f"brak czcionki w {FONT_DIR}")
         emb = embedded()
         guest_profile(emb)

@@ -7,7 +7,7 @@ Pierwsze publiczne wydanie (dawniej Akademik VPN).
   Każde urządzenie dostaje własny identyfikator. Na jednym koncie mogą działać do 3 komputerów.
 - **„Zapamiętaj mnie”.** Sesja jest zaszyfrowana przez Windows (DPAPI).
 - **Nowy wygląd.** Kompaktowe okno z zakładkami Połączenie / Statystyki / Konto, fioletowy motyw,
-  czcionka IBM Plex Mono i nowa ikona: pająk w tarczy.
+  czcionka PT Root UI (ta sama co w AmneziaVPN) i nowa ikona: pająk w tarczy.
 - **Bezpieczniejsze logowanie.** Logowanie działa jeszcze przed połączeniem VPN, przez ograniczone wejście gościa.
   Hasła są dodatkowo szyfrowane TLS-em z przypiętym certyfikatem.
 
