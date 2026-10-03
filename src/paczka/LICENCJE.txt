@@ -2,8 +2,7 @@ Obfuskator VPN – licencje
 =========================
 
 Aplikacja Obfuskator VPN (ObfuskatorVPN.exe)
-  Kod: https://github.com/dominikx2002/obfuskator-vpn – na razie prywatne repozytorium;
-  kod źródłowy udostępnię na prośbę (kontakt w PRYWATNOSC.txt).
+  Kod: https://github.com/dominikx2002/obfuskator-vpn
   Copyright (c) 2026 Dominik Serafin
   Licencja: MIT – plik licencje\MIT-ObfuskatorVPN.txt
 
@@ -26,7 +25,7 @@ Biblioteki wbudowane w ObfuskatorVPN.exe (folder _internal):
   Pillow 12 – licencja MIT-CMU – licencje\Pillow-MIT-CMU.txt
   pystray 0.19 – GNU LGPL v3.0 – licencje\LGPL-3.0.txt (+ licencje\GPL-3.0.txt)
     Kod źródłowy: https://github.com/moses-palmer/pystray
-    Pystray możesz podmienić: na prośbę dostaniesz kod aplikacji, a build.cmd
+    Pystray możesz podmienić: kod aplikacji jest publiczny, a build.cmd
     buduje exe z dowolnej wersji biblioteki zainstalowanej w Pythonie.
   PT Root UI (czcionka, ParaType) – SIL Open Font License 1.1 – licencje\PTRootUI-OFL.txt
   six – licencja MIT – licencje\six-MIT.txt
