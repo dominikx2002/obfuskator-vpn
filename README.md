@@ -73,9 +73,16 @@ urządzeniu własny UUID, a aplikacja przełącza się na zwykłe połączenie.
 
 ## Instalacja (użytkownik)
 
-1. Pobierz `ObfuskatorVPN-<wersja>.zip` z [Releases](../../releases).
-2. Rozpakuj go do stałego folderu, np. `C:\ObfuskatorVPN`, i uruchom `ObfuskatorVPN.exe`.
+1. Pobierz **`ObfuskatorVPN-Setup-<wersja>.exe`** z [najnowszego wydania](../../releases/latest)
+   i uruchom go. Instalator nie wymaga uprawnień administratora.
+2. Uruchom Obfuskator VPN. Za pierwszym razem aplikacja raz zapyta o uprawnienia
+   administratora, bo VPN tworzy wirtualną kartę sieciową.
 3. Załóż konto i wpisz kod z maila. Po akceptacji konta aplikacja połączy się sama.
+
+Aktualizacja: pobierz nowy instalator i uruchom go. Działającą aplikację zamknie sam,
+a konto i ustawienia zostaną. Odinstalujesz ją w **Ustawienia → Aplikacje**.
+Bez instalacji możesz też pobrać `ObfuskatorVPN-<wersja>.zip`, rozpakować go
+w stałym miejscu i uruchomić `ObfuskatorVPN.exe`.
 
 Szczegóły są w [src/paczka/CZYTAJ.txt](src/paczka/CZYTAJ.txt), a dane, które
 zbiera serwer, opisuje [src/paczka/PRYWATNOSC.txt](src/paczka/PRYWATNOSC.txt).

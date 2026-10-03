@@ -2814,11 +2814,36 @@ Register-ScheduledTask -TaskName $name -InputObject $t | Out-Null
         log(f"Nie zarejestrowalem zadania harmonogramu: {out[-200:]}")
 
 
+def installed() -> bool:
+    """Zainstalowane instalatorem (Inno Setup zostawia deinstalator obok exe)."""
+    return (APP_DIR / "unins000.exe").exists()
+
+
+def uninstall():
+    """Wola deinstalator (jako administrator): zamyka aplikacje, zatrzymuje VPN,
+    usuwa zadanie harmonogramu i skroty. Pliki usuwa potem sam deinstalator."""
+    settings = load_settings()
+    port = settings["control_port"]
+    if already_running(port, "quit"):           # aplikacja sama rozlaczy VPN
+        for _ in range(40):
+            time.sleep(0.25)
+            if not port_open(port):
+                break
+    d = str(APP_DIR.resolve()).replace("'", "''")
+    run_ps(f"$d='{d}'; Get-Process | Where-Object {{ $_.Path -and $_.Id -ne $PID -and "
+           f"$_.Id -ne {os.getpid()} -and $_.Path.StartsWith($d,[StringComparison]::OrdinalIgnoreCase) }}"
+           " | Stop-Process -Force -ErrorAction SilentlyContinue")
+    for name in (TASK_NAME, OLD_NAMES[0]):
+        run_ps(f"Unregister-ScheduledTask -TaskName '{name}' -Confirm:$false -ErrorAction SilentlyContinue")
+    run_ps("foreach ($d in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))) "
+           f"{{ Remove-Item -LiteralPath (Join-Path $d '{APP_NAME}.lnk') -ErrorAction SilentlyContinue }}")
+
+
 def ensure_shortcuts():
     """Przy pierwszym uruchomieniu .exe: skrot na pulpicie i w menu Start."""
     marker = DATA_DIR / ".skroty-obfuskator"
-    if not FROZEN or marker.exists():
-        return
+    if not FROZEN or marker.exists() or installed():
+        return  # wersja z instalatora ma skroty od instalatora
 
     def q(v):
         return str(v).replace("'", "''")
@@ -2851,6 +2876,9 @@ def already_running(port, cmd="show") -> bool:
 def main():
     if "--make-icon" in sys.argv:
         make_ico()
+        return
+    if "--uninstall" in sys.argv:
+        uninstall()
         return
     if "--selftest" in sys.argv:  # sprawdzenie spakowanego exe bez uruchamiania VPN
         import tkinter

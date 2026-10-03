@@ -1,10 +1,11 @@
 OBFUSKATOR VPN – instrukcja
 ===========================
 
-1. Rozpakuj cały folder ObfuskatorVPN tam, gdzie ma zostać na stałe,
-   np. C:\ObfuskatorVPN. Nie uruchamiaj aplikacji z wnętrza pliku ZIP.
+1. Jeśli masz instalator (ObfuskatorVPN-Setup), uruchom go i przejdź do kroku 2.
+   Jeśli masz plik ZIP, rozpakuj cały folder ObfuskatorVPN tam, gdzie ma zostać
+   na stałe, np. C:\ObfuskatorVPN. Nie uruchamiaj aplikacji z wnętrza pliku ZIP.
 
-2. Uruchom ObfuskatorVPN.exe.
+2. Uruchom Obfuskator VPN (skrót w menu Start albo ObfuskatorVPN.exe).
    - Windows może pokazać okno „System Windows ochronił komputer”.
      Kliknij „Więcej informacji”, a potem „Uruchom mimo to”.
    - Za pierwszym razem pojawi się pytanie o uprawnienia administratora.
