@@ -1353,8 +1353,16 @@ def draw_icon(color: str, size: int = 64):
     d = ImageDraw.Draw(img)
     white = (255, 255, 255, 255)
     hole = mix(color, "#000000", 0.3)
-    d.line(P([(32, 3.5), (32, 22)]), fill=white, width=max(1, int(1.4 * s)))  # nitka
-    lw = (3.0 if size >= 32 else 3.8) * s
+    # w malych rozmiarach grubsze kreski - inaczej wygladzanie robi z nich szara mgielke
+    if size >= 64:
+        lw, thread = 3.0, 1.4
+    elif size >= 30:
+        lw, thread = 3.9, 2.4
+    else:
+        lw, thread = 5.0, 0          # 16-24 px: bez nitki, sama wyrazna sylwetka
+    if thread:
+        d.line(P([(32, 3.5), (32, 22)]), fill=white, width=max(1, int(thread * s)))  # nitka
+    lw = lw * s
     for leg in SPIDER_LEGS:
         for side in (1, -1):
             pts = [(32 + side * (x - 32), y) for x, y in leg]
@@ -1371,10 +1379,40 @@ def draw_icon(color: str, size: int = 64):
     return img.resize((size, size), Image.LANCZOS)
 
 
+# wszystkie rozmiary, o ktore prosi Windows przy skalowaniu 100-300% (pasek zadan,
+# Alt+Tab, menu Start) - brakujacy rozmiar Windows skaluje z sasiedniego i ikona sie rozmywa
+ICO_SIZES = (256, 128, 96, 80, 72, 64, 60, 48, 40, 36, 32, 30, 24, 20, 16)
+
+
 def make_ico():
-    imgs = [draw_icon(COLORS["on"], n) for n in (256, 128, 64, 48, 32, 24, 16)]
+    imgs = [draw_icon(COLORS["on"], n) for n in ICO_SIZES]
     imgs[0].save(ICON_FILE, format="ICO", sizes=[(i.width, i.height) for i in imgs],
                  append_images=imgs[1:])
+
+
+def ico_complete() -> bool:
+    try:
+        with Image.open(ICON_FILE) as im:
+            return {(n, n) for n in ICO_SIZES} <= set(im.info.get("sizes", ()))
+    except OSError:
+        return False
+
+
+def set_window_icon(win):
+    """Ikona okna (pasek zadan, Alt+Tab) dokladnie w rozmiarach, o ktore prosi system."""
+    try:
+        win.update_idletasks()
+        hwnd = ctypes.windll.user32.GetParent(win.winfo_id())
+        u = ctypes.windll.user32
+        u.LoadImageW.restype = ctypes.c_void_p
+        u.SendMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_void_p]
+        for which, metric in ((1, 11), (0, 49)):     # ICON_BIG/SM_CXICON, ICON_SMALL/SM_CXSMICON
+            n = u.GetSystemMetrics(metric)
+            h = u.LoadImageW(None, str(ICON_FILE), 1, n, n, 0x10)   # IMAGE_ICON, LR_LOADFROMFILE
+            if h:
+                u.SendMessageW(hwnd, 0x80, which, h)                 # WM_SETICON
+    except Exception:
+        pass
 
 
 def dark_titlebar(win):
@@ -2161,7 +2199,7 @@ class Gui:
         txt.configure(state="disabled")
         self._logwin, self._logtxt, self._logsig = w, txt, None
         w.protocol("WM_DELETE_WINDOW", self._close_logs)
-        w.after(30, lambda: dark_titlebar(w))  # po wyswietleniu okna
+        w.after(30, lambda: (dark_titlebar(w), set_window_icon(w)))  # po wyswietleniu okna
         self._refresh_logs()
 
     def _close_logs(self):
@@ -2198,6 +2236,7 @@ class Gui:
         root.deiconify()
         if not self._dark:
             dark_titlebar(root)
+            set_window_icon(root)
             self._dark = True
         root.lift()
         root.attributes("-topmost", True)
@@ -2743,7 +2782,7 @@ class App:
     def run(self, show=False):
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         log(f"Start {APP_NAME}")
-        if not ICON_FILE.exists():
+        if not ico_complete():
             make_ico()
         threading.Thread(target=self.control_server, daemon=True).start()
         threading.Thread(target=ensure_task, daemon=True).start()
