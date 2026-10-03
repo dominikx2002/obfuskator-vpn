@@ -963,6 +963,9 @@ class Cores:
         self.guest = None
         self._guest_log = None
         self._guest_lock = threading.Lock()
+        # start i stop rdzeni nigdy naraz: zamkniecie aplikacji w trakcie laczenia
+        # zostawialo osierocony TUN bez DNS z kluczem ECH (brak internetu)
+        self._lock = threading.RLock()
         ech.attempts_fn = self.ech_attempts
 
     def ech_attempts(self):
@@ -1052,6 +1055,10 @@ class Cores:
             time.sleep(0.1)
 
     def start(self):
+        with self._lock:
+            self._start()
+
+    def _start(self):
         self.stop()
         self.stop_guest()
         p = self.profile
@@ -1131,6 +1138,10 @@ class Cores:
                 self._guest_log = None
 
     def stop(self):
+        with self._lock:
+            self._stop()
+
+    def _stop(self):
         for proc in (self.sbox, self.xray):  # najpierw TUN, potem proxy
             if proc and proc.poll() is None:
                 proc.terminate()
@@ -2238,7 +2249,7 @@ class App:
         threading.Thread(target=self._connect, daemon=True).start()
 
     def _connect(self):
-        if self.busy:
+        if self.busy or self.quitting:
             return
         self.busy = True
         self.last_error = ""
@@ -2738,6 +2749,10 @@ class App:
         threading.Thread(target=ensure_task, daemon=True).start()
         threading.Thread(target=self.autostart_enabled, daemon=True).start()
         threading.Thread(target=ensure_shortcuts, daemon=True).start()
+        # rdzenie po awarii albo przerwanym zamknieciu - bez aplikacji TUN odcina internet
+        n = kill_from_dir(BIN_DIR, ["xray", "sing-box"])
+        if n:
+            log(f"Zatrzymano pozostawione rdzenie: {n}")
         self._init_account()
         self.ech.start()
         self.gui = Gui(self)
