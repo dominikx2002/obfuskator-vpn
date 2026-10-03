@@ -17,7 +17,7 @@ Ma też własny lokalny DNS, który podaje Xray aktualny klucz ECH.
 
 ## Skąd ta aplikacja
 
-**Problem.** Część sieci, np. w akademikach, filtruje ruch systemami DPI
+**Problem.** Część sieci, filtruje ruch systemami DPI
 (Deep Packet Inspection). Zwykłe protokoły VPN mają rozpoznawalny „podpis”
 w pakietach, więc zapora łatwo je wykrywa i blokuje. Nawet w HTTPS jest luka:
 pierwszy pakiet połączenia (Client Hello) zawiera nazwę domeny jawnym tekstem
