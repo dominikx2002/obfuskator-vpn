@@ -40,15 +40,15 @@ v2rayN, ale wymagał ręcznej pracy:
 
 ## Funkcje
 
-- Rejestracja i logowanie (e-mail i hasło). Adres potwierdzasz kodem z maila,
-  a dostęp przyznaje administrator.
-- Każde urządzenie dostaje własny UUID. Na jednym koncie mogą działać do 3 komputerów.
-- „Zapamiętaj mnie”: sesja jest zaszyfrowana Windows DPAPI.
-- Cały ruch idzie przez TUN (StrictRoute), a QUIC jest blokowany, żeby ruch wracał do TCP w tunelu.
+- Ruch wygląda jak zwykłe HTTPS do Cloudflare, a nazwę serwera ukrywa ECH.
 - Klucz ECH jest pobierany w tle kilkoma drogami. Ostatni dobry klucz jest zapisywany,
   więc rotacja kluczy w Cloudflare nie zrywa połączenia.
+- Cały ruch idzie przez TUN (StrictRoute), a QUIC jest blokowany, żeby ruch wracał do TCP w tunelu.
+- Jedno kliknięcie: bez ręcznej konfiguracji routingu, adresów i kluczy jak w v2rayN.
 - Kompaktowe okno: przycisk połączenia z prędkością i pingiem, zakładki Statystyki
   (wykres, publiczne IP, klucz ECH) i Konto. Ikona w zasobniku pokazuje stan.
+- Dostęp do serwera tylko dla zaakceptowanych osób: konto z e-mailem, osobny UUID
+  na urządzenie (do 3 komputerów), „Zapamiętaj mnie” z sesją szyfrowaną Windows DPAPI.
 
 ## Jak to działa
 
