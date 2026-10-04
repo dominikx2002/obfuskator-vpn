@@ -746,6 +746,201 @@ def device_name() -> str:
     return (os.environ.get("COMPUTERNAME") or socket.gethostname() or "Komputer")[:40]
 
 
+# ------------------------------------------------------- wlasny serwer ---
+# Tryb bez konta: uzytkownik ma swoj VPS (np. Mikrus) z domena za Cloudflare.
+# Albo wkleja gotowy link vless://, albo kreator generuje komende instalacyjna
+# (Xray + Apache jak w instrukcji, z zabezpieczeniami jak na serwerze kont).
+
+OWN_FILE = DATA_DIR / "own_server.bin"       # zaszyfrowane DPAPI: link, domena, dane kreatora
+OWN_XRAY_PORT = 10900
+# kazdy adres Cloudflare obsluguje kazda domene za Cloudflare (o celu decyduje SNI w ECH)
+CF_FALLBACK_IP = "104.21.91.212"
+CF_RANGES = ["173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
+             "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20",
+             "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+             "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22"]
+SERVER_BLOCKED_IP = ["0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16",
+                     "172.16.0.0/12", "192.168.0.0/16", "224.0.0.0/3",
+                     "::/128", "::1/128", "fc00::/7", "fe80::/10", "ff00::/8"]
+DOMAIN_RE = re.compile(r"^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
+
+
+def load_own():
+    try:
+        d = json.loads(_dpapi(OWN_FILE.read_bytes(), False))
+        return d if isinstance(d, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def save_own(d):
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        OWN_FILE.write_bytes(_dpapi(json.dumps(d).encode(), True))
+    except OSError as e:
+        log(f"Nie zapisalem ustawien wlasnego serwera: {e}")
+
+
+def is_cloudflare(ip: str) -> bool:
+    import ipaddress
+    try:
+        a = ipaddress.ip_address(ip)
+        return any(a in ipaddress.ip_network(n) for n in CF_RANGES)
+    except ValueError:
+        return False
+
+
+def cloudflare_ip(domain: str) -> str:
+    """Adres Cloudflare dla domeny; gdy DNS sieci nie odpowie albo poda cos dziwnego -
+    staly adres z puli Cloudflare (dziala dla kazdej domeny za Cloudflare)."""
+    try:
+        for info in socket.getaddrinfo(domain, 443, socket.AF_INET):
+            if is_cloudflare(info[4][0]):
+                return info[4][0]
+    except OSError:
+        pass
+    return CF_FALLBACK_IP
+
+
+def own_link(domain: str, uuid: str, path: str, ip: str) -> str:
+    q = urllib.parse.urlencode({"encryption": "none", "security": "tls", "sni": domain,
+                                "alpn": "http/1.1", "type": "ws", "host": domain,
+                                "path": path, "ech": "1"})
+    return f"vless://{uuid}@{ip}:443?{q}#{urllib.parse.quote(domain)}"
+
+
+def own_server_config(uuid: str, path: str) -> dict:
+    """Config Xray dla VPS-a: VLESS przez WebSocket za Apache, bez logu polaczen,
+    bez dostepu z tunelu do uslug serwera, sieci lokalnej i portu 25."""
+    return {
+        "log": {"loglevel": "warning", "access": "none"},
+        "dns": {"servers": ["localhost"], "queryStrategy": "UseIP"},
+        "inbounds": [{"tag": "vpn", "listen": "127.0.0.1", "port": OWN_XRAY_PORT,
+                      "protocol": "vless",
+                      "settings": {"clients": [{"id": uuid}], "decryption": "none"},
+                      "streamSettings": {"network": "ws", "wsSettings": {"path": path}}}],
+        "outbounds": [
+            {"tag": "direct", "protocol": "freedom",
+             "settings": {"finalRules": [{"action": "block", "ip": SERVER_BLOCKED_IP}]},
+             "streamSettings": {"sockopt": {"domainStrategy": "UseIP"}}},
+            {"tag": "block", "protocol": "blackhole"},
+        ],
+        "routing": {"domainStrategy": "IPOnDemand", "rules": [
+            {"type": "field", "domain": ["domain:localhost"], "outboundTag": "block"},
+            {"type": "field", "ip": SERVER_BLOCKED_IP, "outboundTag": "block"},
+            {"type": "field", "port": "25", "outboundTag": "block"},
+        ]},
+    }
+
+
+SERVER_SCRIPT = r"""#!/bin/bash
+# Obfuskator VPN - przygotowanie wlasnego serwera (Debian/Ubuntu, jako root).
+# Instaluje Apache i Xray, ustawia VLESS + WebSocket pod tajna sciezka.
+# Mozna uruchamiac wielokrotnie. Poprzedni config Xray: config.json.przed-obfuskator
+set -e
+DOMAIN='@DOMAIN@'
+WSPATH='@WSPATH@'
+PORT=@PORT@
+export DEBIAN_FRONTEND=noninteractive
+if [ -d /etc/akvpn ]; then
+  echo "PRZERWANO: na tym serwerze dziala system kont Obfuskator VPN (/etc/akvpn)."
+  echo "Ten skrypt nadpisalby jego config Xray. Uzyj innego serwera."
+  exit 1
+fi
+echo "== Obfuskator VPN: serwer dla $DOMAIN"
+if ! command -v apache2 >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
+  echo "-- instaluje Apache"
+  apt-get update -qq && apt-get install -y -qq apache2 curl >/dev/null
+fi
+if ! command -v xray >/dev/null 2>&1; then
+  echo "-- instaluje Xray"
+  bash -c "$(curl -fsSL https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install >/dev/null
+fi
+CFG=/usr/local/etc/xray/config.json
+mkdir -p /usr/local/etc/xray
+if [ -f "$CFG" ] && [ ! -f "$CFG.przed-obfuskator" ]; then cp "$CFG" "$CFG.przed-obfuskator"; fi
+cat > "$CFG" <<'XRAYCFG'
+@CONFIG@
+XRAYCFG
+chmod 644 "$CFG"
+xray run -test -c "$CFG" >/dev/null
+systemctl enable xray >/dev/null 2>&1 || true
+systemctl restart xray
+echo "-- Apache: sciezka WebSocket -> Xray"
+a2enmod proxy proxy_http proxy_wstunnel >/dev/null
+echo "ProxyPass \"$WSPATH\" \"http://127.0.0.1:$PORT$WSPATH\" upgrade=websocket" > /etc/apache2/conf-available/obfuskator-vpn.conf
+a2enconf obfuskator-vpn >/dev/null
+apache2ctl configtest
+systemctl enable apache2 >/dev/null 2>&1 || true
+systemctl reload apache2 2>/dev/null || systemctl restart apache2
+sleep 1
+CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
+  -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' "http://127.0.0.1$WSPATH" || true)
+echo
+if [ "$CODE" = "101" ]; then
+  echo "GOTOWE - wroc do aplikacji i kliknij Polacz."
+else
+  echo "BLAD: test WebSocket zwrocil '$CODE' zamiast 101 - sprawdz: systemctl status xray apache2"
+  exit 1
+fi
+"""
+
+
+def own_server_script(domain: str, uuid: str, path: str) -> str:
+    cfg = json.dumps(own_server_config(uuid, path), indent=2)
+    return (SERVER_SCRIPT.replace("@DOMAIN@", domain).replace("@WSPATH@", path)
+            .replace("@PORT@", str(OWN_XRAY_PORT)).replace("@CONFIG@", cfg))
+
+
+def own_install_command(script: str) -> str:
+    """Jedna linia do wklejenia w SSH; skrypt zostaje tez czytelny w /root."""
+    b64 = base64.b64encode(script.replace("\r\n", "\n").encode()).decode()
+    return (f"echo '{b64}' | base64 -d > /root/obfuskator-serwer.sh "
+            "&& bash /root/obfuskator-serwer.sh")
+
+
+def normalize_own_link(link: str, attempts_fn) -> tuple:
+    """Link vless:// z dowolnego zrodla -> (link gotowy dla aplikacji, opis).
+    Dla WS + TLS ustawia ALPN http/1.1; domene zamienia na adres IP (Cloudflare,
+    gdy domena jest za Cloudflare); ECH wlacza, gdy domena publikuje klucz."""
+    p = Profile(link)                         # ValueError, gdy link jest zly
+    u = urllib.parse.urlsplit(link.strip())
+    q = {k: v[-1] for k, v in urllib.parse.parse_qs(u.query, keep_blank_values=True).items()}
+    notes = []
+    if p.security == "tls" and p.network in ("ws", "httpupgrade") and not q.get("alpn"):
+        q["alpn"] = "http/1.1"
+    host = p.host
+    if not is_ip(host):
+        domain = host
+        try:
+            ips = [i[4][0] for i in socket.getaddrinfo(host, p.port, socket.AF_INET)]
+        except OSError:
+            ips = []
+        cf = [i for i in ips if is_cloudflare(i)]
+        if cf or not ips:
+            host = cf[0] if cf else CF_FALLBACK_IP
+            q.setdefault("sni", domain)
+            q.setdefault("host", domain)
+        else:
+            host = ips[0]
+    if p.security == "tls" and not (q.get("ech") or q.get("echConfigList")) and p.sni:
+        try:
+            fetch_ech(p.sni, attempts_fn())
+            q["ech"] = "1"
+            notes.append("ECH włączone")
+        except Exception as e:
+            if "brak 'ech'" in str(e):
+                notes.append("domena nie ma ECH")
+            else:
+                q["ech"] = "1"                # sieć nie odpowiada - zakladamy Cloudflare z ECH
+    netloc = f"{u.username}@{host}:{p.port}"
+    new = urllib.parse.urlunsplit(("vless", netloc, u.path, urllib.parse.urlencode(q),
+                                   u.fragment or urllib.parse.quote(p.sni or p.host)))
+    Profile(new)
+    return new, ", ".join(notes)
+
+
 class ApiError(Exception):
     """Odpowiedz API z bledem (code - kod maszynowy, komunikat po polsku)."""
 
@@ -955,7 +1150,7 @@ class Cores:
         self.sbox = None
         self.socks_port = settings["socks_port"]
         self.clash_port = settings["clash_port"]
-        self.router_dns = "192.168.50.1"
+        self.router_dns = None          # DNS sieci - wykrywany przy pierwszej potrzebie
         self.profile = NoProfile()
         self.remote_api_port = 10910    # port API kont na serwerze (z danych wbudowanych)
         self.started_at = None
@@ -978,6 +1173,8 @@ class Cores:
                 ("DoH 1.1.1.1 bezpośrednio", doh_ech, "1.1.1.1", self.s["ech_direct_port"]),
                 (f"DNS {self.router_dns} (sieć)", udp_ech, "127.0.0.1", self.s["ech_router_port"]),
             ]
+        if self.router_dns is None:     # przed pierwszym polaczeniem (np. nowa instalacja)
+            self.router_dns = system_dns()
         return [  # rdzenie wylaczone - zwykla siec
             ("DoH 1.1.1.1", doh_ech, "1.1.1.1", None),
             ("DoH 8.8.8.8", doh_ech, "8.8.8.8", None),
@@ -1896,10 +2093,11 @@ class Gui:
         p = cores.profile
         has_profile = isinstance(p, Profile)
         sess = app.session or {}
-        em = sess.get("email") or p.remarks
+        own = not sess and app.own_active()
+        em = app.display_name() or p.remarks
         em_short = em if len(em) <= 26 else em[:25] + "…"
         dev = (sess.get("device") or {}).get("name") or device_name()
-        initial = (sess.get("email") or "?")[0].upper()
+        initial = (em or "?")[0].upper()
         if initial != self._avatar_key:
             self._avatar_key = initial
             c.itemconfigure(self.avatar, image=self.photo("avatar", self.avatar_img(initial)))
@@ -1923,8 +2121,9 @@ class Gui:
             c.itemconfigure(self.chips["ping"], text=f"{m.ping_ms} ms" if m.ping_ms is not None
                             else "– ms")
             c.itemconfigure(self.prof_name, text=em_short)
-            c.itemconfigure(self.prof_sub, text=f"{dev[:16]} · {p.transport.replace(' ', '')}"
-                            if has_profile else "Kliknij, aby się zalogować")
+            c.itemconfigure(self.prof_sub, text=f"{'Własny serwer' if own else dev[:16]} · "
+                            f"{p.transport.replace(' ', '')}" if has_profile
+                            else "Kliknij, aby się zalogować")
             since = ""
             if cores.started_at and on:
                 since = f"Połączono od {fmt_duration(time.time() - cores.started_at)}"
@@ -1954,11 +2153,15 @@ class Gui:
             c.itemconfigure(d["conns"], text=str(m.conns) if on else "–")
         else:
             c.itemconfigure(self.acc_email, text=em_short)
-            status = {"active": "konto aktywne", "pending": "czeka na akceptację"}.get(
-                sess.get("status"), "nie zalogowano")
-            c.itemconfigure(self.acc_dev, text=f"{dev[:18]} · {status}")
-            c.itemconfigure(self.acc_note, text="Zapamiętane na tym komputerze" if app.remember
-                            else "Sesja tylko do zamknięcia aplikacji")
+            if own:
+                c.itemconfigure(self.acc_dev, text=f"Własny serwer · {p.transport.replace(' ', '')}")
+                c.itemconfigure(self.acc_note, text="Bez konta – Twój serwer VPS")
+            else:
+                status = {"active": "konto aktywne", "pending": "czeka na akceptację"}.get(
+                    sess.get("status"), "nie zalogowano")
+                c.itemconfigure(self.acc_dev, text=f"{dev[:18]} · {status}")
+                c.itemconfigure(self.acc_note, text="Zapamiętane na tym komputerze" if app.remember
+                                else "Sesja tylko do zamknięcia aplikacji")
             key = (bool(app._autostart), bool(app.s.get("auto_connect")))
             if key != self._opts_key:
                 self._opts_key = key
@@ -1971,7 +2174,7 @@ class Gui:
     def account_dialog(self):
         """Zakladka Konto (albo ekran logowania, gdy nikt nie jest zalogowany)."""
         self.show()
-        if self.app.session and self.auth_current is None:
+        if (self.app.session or self.app.own_active()) and self.auth_current is None:
             self.set_tab("acct")
 
     # -- ekran logowania / rejestracji (nakladka na glowne okno) --
@@ -2009,7 +2212,9 @@ class Gui:
         head.tag_bind("menu", "<Leave>", lambda e: head.itemconfigure(dots, fill=T["muted"]))
         color = COLORS["connecting"] if view == "pending" else COLORS["on"]
         head.create_image(P(self.W / 2), P(80), image=self.photo("auth_big", draw_icon(color, P(56))))
-        titles = {"login": "Zaloguj się", "register": "Załóż konto", "verify": "Potwierdź e-mail",
+        titles = {"start": "Wybierz serwer", "own": "Własny serwer", "wiz1": "Kreator serwera",
+                  "wiz2": "Instalacja na serwerze",
+                  "login": "Zaloguj się", "register": "Załóż konto", "verify": "Potwierdź e-mail",
                   "pending": "Czekasz na akceptację", "forgot": "Reset hasła",
                   "reset": "Nowe hasło", "device_limit": "Limit urządzeń"}
         t1 = titles[view]
@@ -2068,16 +2273,69 @@ class Gui:
             lb.bind("<Leave>", lambda e: lb.configure(fg=T["muted"]))
             lb.bind("<Button-1>", lambda e: None if self.app.auth_busy else cmd())
 
+        def back(view_):
+            row = tk.Frame(a, bg=T["bg"])
+            row.pack(fill="x", padx=P(20), pady=(P(10), 0))
+            lb = tk.Label(row, text="← Wróć", bg=T["bg"], fg=T["muted"], cursor="hand2", font=F(9))
+            lb.pack(side="left")
+            lb.bind("<Enter>", lambda e: lb.configure(fg=T["accent_hi"]))
+            lb.bind("<Leave>", lambda e: lb.configure(fg=T["muted"]))
+            lb.bind("<Button-1>", lambda e: None if self.app.auth_busy else self.auth_view(view_))
+
+        def secondary(label, cmd):
+            b = self.pill(card, self.W - 68, 40, label, cmd, "secondary")
+            b.pack(pady=(P(2), P(6)))
+            self._auth_widgets.append(b)
+            return b
+
         app = self.app
         email = self._auth_email
         remember = self._auth_remember
-        if view == "login":
+        own = app.own or {}
+        if view == "start":
+            primary("Serwer Obfuskator VPN", lambda: self.auth_view("login"))
+            text("Konto i dostęp po akceptacji", pady=(P(2), P(12)))
+            secondary("Własny serwer", lambda: self.auth_view("own"))
+            text("Twój VPS (np. Mikrus) – bez konta", pady=(P(2), 0))
+        elif view == "own":
+            link_var = tk.StringVar(value=own.get("link", ""))
+            field("Link vless://", link_var)
+            primary("Połącz", lambda: app.own_connect(link_var.get()))
+            link("Nie masz serwera? Kreator Mikrus", lambda: self.auth_view("wiz1"))
+            back("start")
+        elif view == "wiz1":
+            text("1. Panel Mikrusa → Sieć i domeny → Subdomeny\n"
+                 "2. Dodaj subdomenę na porcie 80 (bez opcji HTTPS)\n"
+                 "3. Wpisz ją poniżej", T["text"])
+            dom = tk.StringVar(value=(own.get("wizard") or {}).get("domain", ""))
+            field("Subdomena", dom)
+            primary("Dalej", lambda: app.own_wizard(dom.get()))
+            back("own")
+        elif view == "wiz2":
+            cmd = kw.get("command", "")
+            text("Połącz się z serwerem przez SSH i wklej komendę:", T["text"])
+            box, ent = self.entry_box(card, tk.StringVar(value=cmd))
+            ent.configure(state="readonly", readonlybackground=T["card_hi"], font=F(9))
+            box.pack(fill="x", pady=(P(3), P(8)))
+
+            def copy():
+                self.root.clipboard_clear()
+                self.root.clipboard_append(cmd)
+                self.auth_info("Skopiowano – wklej w SSH (prawy przycisk myszy)")
+            secondary("Kopiuj komendę", copy)
+            text("Gdy pojawi się GOTOWE:", pady=(P(4), P(2)))
+            primary("Połącz", app.own_wizard_connect)
+            link("Zobacz skrypt", lambda: os.startfile(str(DATA_DIR / "obfuskator-serwer.sh"))
+                 if (DATA_DIR / "obfuskator-serwer.sh").exists() else None)
+            back("wiz1")
+        elif view == "login":
             field("E-mail", email)
             pw = field("Hasło", secret=True)
             remember_box()
             primary("Zaloguj się", lambda: app.auth_login(email.get(), pw.get(), remember.get()))
             link("Załóż konto", lambda: self.auth_view("register"))
             link("Nie pamiętam hasła", lambda: self.auth_view("forgot"), side="right")
+            back("start")
         elif view == "register":
             field("E-mail", email)
             pw = field("Hasło", secret=True)
@@ -2281,6 +2539,7 @@ class App:
         self._last_check = 0.0
         self._last_guest_check = 0.0
         self._pending_login = None   # (email, haslo, zapamietaj) - po kodzie z maila
+        self.own = None              # wlasny serwer: {link, domain, active, wizard}
 
     # -- sterowanie --
     def connect_async(self):
@@ -2342,6 +2601,10 @@ class App:
             self.emb = self.guest_prof = None
         self.session = load_session()
         self.remember = self.session is not None
+        self.own = load_own()
+        if self.session and self.own and self.own.get("active"):
+            self.own["active"] = False   # jeden tryb naraz - konto ma pierwszenstwo
+            save_own(self.own)
         self._apply_profile()
 
     def _apply_profile(self) -> bool:
@@ -2353,6 +2616,11 @@ class App:
                 p = Profile(sess["profile"])
             except ValueError as e:
                 log(f"Zly profil od serwera: {e}")
+        elif self.own_active():
+            try:
+                p = Profile(self.own["link"])
+            except ValueError as e:
+                log(f"Zly link wlasnego serwera: {e}")
         changed = getattr(self.cores.profile, "link", None) != getattr(p, "link", None)
         self.cores.set_profile(p)
         return changed
@@ -2542,7 +2810,100 @@ class App:
             self._do_login(email, pw, remember)
         self._auth_task(fn, "Ustawianie hasła…")
 
+    # -- wlasny serwer (bez konta) --
+    def own_active(self) -> bool:
+        return bool(self.own and self.own.get("active") and self.own.get("link"))
+
+    def display_name(self) -> str:
+        if self.session:
+            return self.session.get("email", "")
+        if self.own_active():
+            return self.own.get("domain", "")
+        return ""
+
+    def own_connect(self, link):
+        """Tryb A: wklejony link vless:// - normalizacja (ALPN, IP Cloudflare, ECH) i polaczenie."""
+        link = (link or "").strip()
+        if not link.lower().startswith("vless://"):
+            self.gui.auth_info("Wklej link zaczynający się od vless://", True)
+            return
+
+        def fn():
+            try:
+                new, notes = normalize_own_link(link, self.cores.ech_attempts)
+            except ValueError as e:
+                self._auth_info(str(e), True)
+                return
+            p = Profile(new)
+            self._own_activate({"link": new, "domain": p.sni or p.host,
+                                "wizard": (self.own or {}).get("wizard")})
+            log(f"Wlasny serwer: {p.sni or p.host} ({p.transport}{', ' + notes if notes else ''})")
+        self._auth_task(fn, "Sprawdzanie serwera…")
+
+    def own_wizard(self, domain):
+        """Kreator, krok 1: subdomena -> komenda instalacyjna z losowym UUID i sciezka."""
+        import secrets
+        import uuid as uuidlib
+        domain = (domain or "").strip().lower().removeprefix("https://").removeprefix("http://").strip("/")
+        if not DOMAIN_RE.match(domain):
+            self.gui.auth_info("Wpisz subdomenę, np. mojvpn.bieda.it", True)
+            return
+        old = (self.own or {}).get("wizard") or {}
+        if old.get("domain") == domain:      # ponowny przebieg - te same dane co w skrypcie
+            wiz = old
+        else:
+            wiz = {"domain": domain, "uuid": str(uuidlib.uuid4()),
+                   "path": "/" + secrets.token_hex(8)}
+        self.own = dict(self.own or {}, wizard=wiz, active=False)
+        save_own(self.own)
+        script = own_server_script(domain, wiz["uuid"], wiz["path"])
+        try:
+            (DATA_DIR / "obfuskator-serwer.sh").write_text(script, encoding="utf-8", newline="\n")
+        except OSError:
+            pass
+        self.gui.auth_view("wiz2", command=own_install_command(script))
+
+    def own_wizard_connect(self):
+        """Kreator, krok 2: serwer gotowy - link z danych kreatora i polaczenie."""
+        wiz = (self.own or {}).get("wizard")
+        if not wiz:
+            self.gui.auth_view("wiz1")
+            return
+
+        def fn():
+            link = own_link(wiz["domain"], wiz["uuid"], wiz["path"], cloudflare_ip(wiz["domain"]))
+            self._own_activate({"link": link, "domain": wiz["domain"], "wizard": wiz})
+            log(f"Wlasny serwer z kreatora: {wiz['domain']}")
+        self._auth_task(fn, "Łączenie…")
+
+    def _own_activate(self, own):
+        own["active"] = True
+        self.own = own
+        save_own(own)
+        self._apply_profile()
+        self.ui.put(self._enter_main)
+
+    def _own_logout(self):
+        """Wylogowanie z trybu wlasnego serwera: rozlacza, link zostaje zapamietany."""
+        self.want_connected = False
+        if self.own:
+            self.own["active"] = False
+            save_own(self.own)
+        if self.cores.running():
+            self._disconnect()
+        self._apply_profile()
+        log("Wylogowano z wlasnego serwera")
+
+        def show():
+            self.gui.show()
+            self.gui.auth_view("start")
+        self.ui.put(show)
+
     def logout_async(self):
+        if not self.session and self.own_active():
+            self.want_connected = False
+            threading.Thread(target=self._own_logout, daemon=True).start()
+            return
         sess = self.session
         if not sess:
             return
@@ -2567,7 +2928,7 @@ class App:
 
         def show():
             self.gui.show()
-            self.gui.auth_view("login", email=email)
+            self.gui.auth_view("start" if msg == "Wylogowano." else "login", email=email)
             self.gui.auth_info(msg, error)
         self.ui.put(show)
 
@@ -2798,9 +3159,12 @@ class App:
         self.build_tray()
         threading.Thread(target=self.monitor.loop, daemon=True).start()
         sess = self.session
-        if not sess:
-            self.gui.auth_view("login")
-            show = True  # bez konta nic nie zadziala - okno zawsze
+        if not sess and self.own_active():
+            if self.s.get("auto_connect"):
+                self.connect_async()
+        elif not sess:
+            self.gui.auth_view("start")
+            show = True  # bez wybranego serwera nic nie zadziala - okno zawsze
         elif sess.get("status") != "active":
             self.gui.auth_view("pending", email=sess["email"])
         elif self.s.get("auto_connect"):

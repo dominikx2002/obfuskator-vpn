@@ -415,7 +415,7 @@ def gui_flow(local_guest):
           and a.cores.profile.path == json.loads((ROOT / "src" / "serwer_prywatny.json").read_text())["vpn_path"])
     rc, out = admin("devices", E2)
     a.logout_async()
-    check("wylogowanie -> ekran logowania", pump(lambda: a.gui.auth_current == "login" and a.session is None))
+    check("wylogowanie -> wybór serwera", pump(lambda: a.gui.auth_current == "start" and a.session is None))
     check("sesja usunieta z dysku", app.load_session() is None)
     rc, out = admin("devices", E2)
     check("urzadzenie usuniete na serwerze", "(brak)" in out)

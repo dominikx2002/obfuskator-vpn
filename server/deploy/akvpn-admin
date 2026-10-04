@@ -1,4 +1,4 @@
 #!/bin/sh
-# Zarzadzanie kontami Akademik VPN (uruchamiaj jako root). Pomoc: akvpn-admin -h
+# Zarzadzanie kontami Obfuskator VPN (uruchamiaj jako root). Pomoc: akvpn-admin -h
 cd /opt/akvpn || exit 1
 exec runuser -u akvpn -- env AKVPN_CONFIG=/etc/akvpn/config.json /opt/akvpn/venv/bin/python -m akvpn.admin "$@"
