@@ -12,7 +12,12 @@ OBFUSKATOR VPN – instrukcja
      Kliknij „Tak”. To potrzebne tylko raz, bo VPN tworzy wirtualną kartę
      sieciową. Kolejne uruchomienia nie pytają.
 
-3. Kliknij „Załóż konto”, wpisz swój e-mail i hasło (co najmniej 8 znaków).
+3. Wybierz serwer.
+   WŁASNY SERWER (Twój VPS, bez konta): wklej link vless:// albo użyj
+   „Kreator Mikrus”: subdomena w panelu Mikrusa na porcie 80 (bez opcji HTTPS),
+   komenda z aplikacji wklejona w SSH, a po napisie GOTOWE – „Połącz”.
+   SERWER OBFUSKATOR VPN (konto):
+   Kliknij „Załóż konto”, wpisz swój e-mail i hasło (co najmniej 8 znaków).
    Na e-mail przyjdzie 6-cyfrowy kod – wpisz go w aplikacji (sprawdź też Spam).
    Potem konto musi zaakceptować administrator serwera. Aplikacja czeka
    w zasobniku obok zegara i połączy się sama, gdy to nastąpi

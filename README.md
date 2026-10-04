@@ -45,6 +45,9 @@ v2rayN, ale wymagał ręcznej pracy:
   więc rotacja kluczy w Cloudflare nie zrywa połączenia.
 - Cały ruch idzie przez TUN (StrictRoute), a QUIC jest blokowany, żeby ruch wracał do TCP w tunelu.
 - Jedno kliknięcie: bez ręcznej konfiguracji routingu, adresów i kluczy jak w v2rayN.
+- **Własny serwer bez konta:** wklej link `vless://` z dowolnego VPS-a za Cloudflare
+  albo użyj kreatora dla Mikrusa. Aplikacja wygeneruje jedną komendę do wklejenia w SSH,
+  która stawia Apache i Xray, a potem połączy się sama.
 - Kompaktowe okno: przycisk połączenia z prędkością i pingiem, zakładki Statystyki
   (wykres, publiczne IP, klucz ECH) i Konto. Ikona w zasobniku pokazuje stan.
 - Dostęp do serwera tylko dla zaakceptowanych osób: konto z e-mailem, osobny UUID
@@ -70,7 +73,16 @@ urządzeniu własny UUID, a aplikacja przełącza się na zwykłe połączenie.
    i uruchom go. Instalator nie wymaga uprawnień administratora.
 2. Uruchom Obfuskator VPN. Za pierwszym razem aplikacja raz zapyta o uprawnienia
    administratora, bo VPN tworzy wirtualną kartę sieciową.
-3. Załóż konto i wpisz kod z maila. Po akceptacji konta aplikacja połączy się sama.
+3. Wybierz serwer:
+   - **Serwer Obfuskator VPN:** załóż konto i wpisz kod z maila. Po akceptacji konta
+     aplikacja połączy się sama.
+   - **Własny serwer:** wklej link `vless://` albo kliknij „Kreator Mikrus”:
+     1. W panelu Mikrusa (Sieć i domeny → Subdomeny) dodaj subdomenę na **porcie 80**,
+        bez opcji HTTPS.
+     2. Wpisz ją w aplikacji, skopiuj komendę i wklej ją w SSH na serwerze.
+     3. Gdy pojawi się `GOTOWE`, kliknij „Połącz”.
+
+   Działa jeden tryb naraz. Żeby zmienić serwer, wyloguj się (zakładka Konto).
 
 Aktualizacja: pobierz nowy instalator i uruchom go. Działającą aplikację zamknie sam,
 a konto i ustawienia zostaną. Odinstalujesz ją w **Ustawienia → Aplikacje**.
